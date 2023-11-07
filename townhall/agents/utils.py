@@ -13,3 +13,10 @@ def is_termination_msg(x):
         bool: True if the message is a termination message, False otherwise.
     """
     return isinstance(x, dict) and "TERMINATE" == str(x.get("content", ""))[-9:].upper()
+
+try:
+    from termcolor import colored
+except ImportError:
+
+    def colored(x, *args, **kwargs):
+        return x

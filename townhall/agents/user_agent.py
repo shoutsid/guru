@@ -5,7 +5,7 @@ This module defines the UserAgent class, which represents a user agent that can 
 
 import threading
 from autogen import UserProxyAgent
-
+from .utils import is_termination_msg
 
 class UserAgent(UserProxyAgent):
     """A class representing a user agent that can send messages to the system.
@@ -23,6 +23,9 @@ class UserAgent(UserProxyAgent):
     def __init__(self, name: str = None, **kwargs):
         if name is None:
             name: str = "User"
+
+        if "is_termination_msg" not in kwargs:
+            kwargs["is_termination_msg"] = is_termination_msg
         super().__init__(name=name, **kwargs)
         self.current_message = None
         self.message_event = threading.Event()

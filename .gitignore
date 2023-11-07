@@ -20,3 +20,4 @@ agent_workplace/**
 !pull_llama.sh
 !.keep
 tmp/
+local_cache/
