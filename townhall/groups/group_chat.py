@@ -32,12 +32,12 @@ class GroupChatExpanded:
         """Return the names of the agents in the group chat."""
         return [agent.name for agent in self.agents]
 
-    def learn_from_messages(self):
-        """Learn from messages."""
-        for agent in self.agents:
-            if hasattr(agent, "learn_from_user_feedback"):
-                agent.learn_from_user_feedback()
-                agent.close_db()
+    # def learn_from_messages(self):
+    #     """Learn from messages."""
+    #     for agent in self.agents:
+    #         if hasattr(agent, "learn_from_user_feedback"):
+    #             agent.learn_from_user_feedback()
+    #             agent.close_db()
 
     def reset(self):
         """Reset the group chat."""

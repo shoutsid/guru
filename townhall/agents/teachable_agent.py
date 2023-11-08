@@ -116,6 +116,8 @@ class TeachableAgent(ConversableAgent):
         print(colored("\nCONSIDERING WHETHER TO RETRIEVE MEMOS FROM THE DB", "light_yellow"))
         if self.memo_store.last_memo_id > 0:
             print(colored("    Number of memos in DB = {}".format(self.memo_store.last_memo_id), "light_yellow"))
+            # Disabled due to insane amount of time it takes to retrieve memos and access the full conversation
+            #
             new_user_text = self.consider_memo_retrieval(user_text)
             if new_user_text != user_text:
                 # Make a copy of the message list, and replace the last user message with the new one.

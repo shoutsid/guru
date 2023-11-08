@@ -21,3 +21,5 @@ agent_workplace/**
 !.keep
 tmp/
 local_cache/
+
+recordings/

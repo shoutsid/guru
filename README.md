@@ -37,7 +37,7 @@ Our advanced agents go beyond merely responding to user queries; they orchestrat
 
 Before you begin, ensure you have met the following requirements:
 
-- Python 3.10 or higher
+- Python 3.11 or higher
 - pip package manager
 - sqlite3
 

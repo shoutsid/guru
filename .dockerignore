@@ -4,7 +4,6 @@ models/**
 .venv/
 *.log
 __pycache__/
-.cache/
 *.db
 .benchmarks/
 .pytest_cache/
@@ -19,3 +18,4 @@ townhall/models/whisper/weights/**
 !pull_llama.sh
 !.keep
 tmp/
+local_cache/

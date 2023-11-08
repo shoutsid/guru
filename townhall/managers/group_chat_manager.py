@@ -31,9 +31,9 @@ class GroupChatManagerExpanded(ConversableAgent):
         )
         self.register_reply(Agent, GroupChatManagerExpanded.run_chat, config=groupchat, reset_config=GroupChatExpanded.reset)
 
-    def complete(self):
-        """Complete the chat."""
-        self.groupchat.learn_from_messages()
+    # def complete(self):
+    #     """Complete the chat."""
+    #     self.groupchat.learn_from_messages()
 
     def run_chat(
         self,

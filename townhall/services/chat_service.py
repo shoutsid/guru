@@ -97,4 +97,5 @@ class ChatService:
         Returns:
           None
         """
-        self.manager.complete()
+        pass
+        # self.manager.complete()

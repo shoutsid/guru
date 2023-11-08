@@ -1,22 +1,33 @@
 """
 Utility functions for the Whisper model.
 """
-
-import itertools
-import base64
-import librosa # pylint: disable=import-error
+import requests, tempfile, itertools, base64, librosa
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
+from tqdm import tqdm
 from tiktoken import Encoding
 from tinygrad.tensor import Tensor
 from tinygrad.nn.state import torch_load, load_state_dict
 from pyaudio import PyAudio, paInt16
-from extra.utils import download_file
 from constants import (
     RATE, N_FFT, HOP_LENGTH, N_MELS, LANGUAGES,
     BASE, CHUNK, RECORD_SECONDS, MODEL_URLS
 )
 from whisper import Whisper
+
+def download_file(url, fp, skip_if_exists=True):
+    if skip_if_exists and Path(fp).is_file() and Path(fp).stat().st_size > 0:
+        return
+    r = requests.get(url, stream=True)
+    assert r.status_code == 200
+    progress_bar = tqdm(total=int(r.headers.get('content-length', 0)), unit='B', unit_scale=True, desc=url)
+    (path := Path(fp).parent).mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=path, delete=False) as f:
+        for chunk in r.iter_content(chunk_size=16384):
+            progress_bar.update(f.write(chunk))
+        f.close()
+        Path(f.name).rename(fp)
 
 def prep_audio(waveform) -> Tensor:
     """

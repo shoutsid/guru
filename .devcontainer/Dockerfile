@@ -4,7 +4,7 @@ FROM python:3.8-slim-buster
 # Install dev apt packages
 RUN apt update && apt install -y git libasound-dev libportaudio2 \
     libportaudiocpp0 portaudio19-dev build-essential git \
-    libsqlite3-dev
+    libsqlite3-dev libopus0 ffmpeg
 
 # Set the working directory in the container to /app
 WORKDIR /app
