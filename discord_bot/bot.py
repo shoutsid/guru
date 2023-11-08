@@ -82,8 +82,6 @@ TEACHABLE_AGENT = TeachableAgent(
     llm_config=LLM_CONFIG,
     teach_config=TEACH_CONFIG,
     system_message=DEFAULT_SYSTEM_MESSAGE,
-    code_execution_config={ "work_dir": "agent_workplace" },
-    max_consecutive_auto_reply=10,
     human_input_mode="NEVER"
 )
 
@@ -103,10 +101,10 @@ USER_AGENT = UserAgent(
 MESSAGES = []
 AGENTS = []
 AGENTS.append(USER_AGENT)
-AGENTS.append(COMMAND_EXECUTION_AGENT)
+# AGENTS.append(COMMAND_EXECUTION_AGENT)
 AGENTS.append(TEACHABLE_AGENT)
-GROUP_CHAT = GroupChatExpanded(agents=AGENTS, messages=MESSAGES, max_round=50)
-GROUP_MANAGER = GroupChatManagerExpanded(groupchat=GROUP_CHAT, llm_config=LLM_CONFIG)
+# GROUP_CHAT = GroupChatExpanded(agents=AGENTS, messages=MESSAGES, max_round=50)
+# GROUP_MANAGER = GroupChatManagerExpanded(groupchat=GROUP_CHAT, llm_config=LLM_CONFIG)
 MEMBERS = []
 
 def find_agent(discord_username: str):
@@ -188,6 +186,9 @@ async def stop(ctx):
 async def ask(ctx):
     await deal_with_message(ctx, ctx.message.content[6:])
 
+@DISCORD_BOT.command(description="Ask Question to Agent and expect a voice")
+async def play_audio(ctx, file_path):
+    DISCORD_BOT.dispatch("speak", ctx, file_path)
 
 # =========== EVENTS
 
@@ -248,8 +249,13 @@ async def process_audio(ctx, sink, audio, files, timestamp, user_id):
 async def deal_with_message(ctx, message):
     timestamp = ctx.message.created_at.strftime("%Y-%m-%d-%H-%M-%S")
     message = f"{timestamp}: {message}"
-    await USER_AGENT.a_initiate_chat(GROUP_MANAGER, message=message, clear_history=True)
-    last_message = GROUP_MANAGER.last_message(USER_AGENT)
+
+    # reset the agents convos etc
+    TEACHABLE_AGENT.reset()
+    USER_AGENT.reset()
+
+    await USER_AGENT.a_initiate_chat(TEACHABLE_AGENT, message=message, clear_history=True)
+    last_message = TEACHABLE_AGENT.last_message(USER_AGENT)
     # if last message is a function call, ignore it
     if last_message is None:
         logging.info("No reply from")
