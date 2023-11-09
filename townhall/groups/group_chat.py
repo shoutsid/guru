@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass
 from typing import Dict, List
 from autogen import Agent
@@ -26,6 +27,8 @@ class GroupChatExpanded:
     max_round: int = 10
     admin_name: str = "User"
     func_call_filter: bool = True
+    previous_speaker: Agent = None  # Keep track of the previous speaker
+
 
     @property
     def agent_names(self) -> List[str]:
@@ -65,51 +68,93 @@ class GroupChatExpanded:
 Read the following conversation.
 Then select the next role from {[agent.name for agent in agents]} to play. Only return the role."""
 
+    # def select_speaker(self, last_speaker: Agent, selector: ConversableAgent):
+    #     """Select the next speaker."""
+    #     if self.func_call_filter and self.messages and "function_call" in self.messages[-1]:
+    #         # find agents with the right function_map which contains the function name
+    #         agents = [
+    #             agent for agent in self.agents if agent.can_execute_function(self.messages[-1]["function_call"]["name"])
+    #         ]
+    #         if len(agents) == 1:
+    #             # only one agent can execute the function
+    #             return agents[0]
+    #         elif not agents:
+    #             # find all the agents with function_map
+    #             agents = [agent for agent in self.agents if agent.function_map]
+    #             if len(agents) == 1:
+    #                 return agents[0]
+    #             elif not agents:
+    #                 raise ValueError(
+    #                     f"No agent can execute the function {self.messages[-1]['name']}. "
+    #                     "Please check the function_map of the agents."
+    #                 )
+    #     else:
+    #         agents = self.agents
+    #         # Warn if GroupChat is underpopulated
+    #         n_agents = len(agents)
+    #         if n_agents < 3:
+    #             logger.warning(
+    #                 f"GroupChat is underpopulated with {n_agents} agents. Direct communication would be more efficient."
+    #             )
+    #     selector.update_system_message(self.select_speaker_msg(agents))
+    #     final, name = selector.generate_oai_reply(
+    #         self.messages
+    #         + [
+    #             {
+    #                 "role": "system",
+    #                 "content": f"Read the above conversation. Then select the next role from {[agent.name for agent in agents]} to play. Only return the role.",
+    #             }
+    #         ]
+    #     )
+    #     if not final:
+    #         # i = self._random.randint(0, len(self._agent_names) - 1)  # randomly pick an id
+    #         return self.next_agent(last_speaker, agents)
+    #     try:
+    #         return self.agent_by_name(name)
+    #     except ValueError:
+    #         return self.next_agent(last_speaker, agents)
+
+
     def select_speaker(self, last_speaker: Agent, selector: ConversableAgent):
-        """Select the next speaker."""
-        if self.func_call_filter and self.messages and "function_call" in self.messages[-1]:
-            # find agents with the right function_map which contains the function name
-            agents = [
-                agent for agent in self.agents if agent.can_execute_function(self.messages[-1]["function_call"]["name"])
+        # Check if last message suggests a next speaker or termination
+        last_message = self.messages[-1] if self.messages else None
+        if last_message:
+            if 'NEXT:' in last_message['content']:
+                suggested_next = last_message['content'].split('NEXT: ')[-1].strip()
+                print(f'Extracted suggested_next = {suggested_next}')
+                try:
+                    return self.agent_by_name(suggested_next)
+                except ValueError:
+                    pass  # If agent name is not valid, continue with normal selection
+            elif 'TERMINATE' in last_message['content']:
+                try:
+                    return self.agent_by_name('User_proxy')
+                except ValueError:
+                    pass  # If 'User_proxy' is not a valid name, continue with normal selection
+
+        team_leader_names = [agent.name for agent in self.agents if agent.name.endswith('1')]
+
+        if last_speaker.name in team_leader_names:
+            team_letter = last_speaker.name[0]
+            possible_next_speakers = [
+                agent for agent in self.agents if (agent.name.startswith(team_letter) or agent.name in team_leader_names)
+                and agent != last_speaker and agent != self.previous_speaker
             ]
-            if len(agents) == 1:
-                # only one agent can execute the function
-                return agents[0]
-            elif not agents:
-                # find all the agents with function_map
-                agents = [agent for agent in self.agents if agent.function_map]
-                if len(agents) == 1:
-                    return agents[0]
-                elif not agents:
-                    raise ValueError(
-                        f"No agent can execute the function {self.messages[-1]['name']}. "
-                        "Please check the function_map of the agents."
-                    )
         else:
-            agents = self.agents
-            # Warn if GroupChat is underpopulated
-            n_agents = len(agents)
-            if n_agents < 3:
-                logger.warning(
-                    f"GroupChat is underpopulated with {n_agents} agents. Direct communication would be more efficient."
-                )
-        selector.update_system_message(self.select_speaker_msg(agents))
-        final, name = selector.generate_oai_reply(
-            self.messages
-            + [
-                {
-                    "role": "system",
-                    "content": f"Read the above conversation. Then select the next role from {[agent.name for agent in agents]} to play. Only return the role.",
-                }
+            team_letter = last_speaker.name[0]
+            possible_next_speakers = [
+                agent for agent in self.agents if agent.name.startswith(team_letter)
+                and agent != last_speaker and agent != self.previous_speaker
             ]
-        )
-        if not final:
-            # i = self._random.randint(0, len(self._agent_names) - 1)  # randomly pick an id
-            return self.next_agent(last_speaker, agents)
-        try:
-            return self.agent_by_name(name)
-        except ValueError:
-            return self.next_agent(last_speaker, agents)
+
+        self.previous_speaker = last_speaker
+
+        if possible_next_speakers:
+            next_speaker = random.choice(possible_next_speakers)
+            return next_speaker
+        else:
+            return None
+
 
     def _participant_roles(self):
         return "\n".join([f"{agent.name}: {agent.system_message}" for agent in self.agents])

@@ -8,14 +8,14 @@ if "OPENAI_API_KEY" not in os.environ:
     raise EnvironmentError("Missing essential environment variable: OPENAI_API_KEY")
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-GPT3_5_TURBO_0613 = "gpt-3.5-turbo-0613"
-GPT4_0613 = "gpt-4-0613"
+GPT3_5_TURBO_0613 = "gpt-3.5-turbo"
+GPT4 = "gpt-4"
 VICUNA_7B_V1_5 = "vicuna-7b-v1.5"
 
 if "GPT4" in os.environ:
     CONFIG_LIST = [
         {
-            "model": GPT4_0613,
+            "model": GPT4,
             "api_key": OPENAI_API_KEY,
         }
     ]
@@ -31,7 +31,7 @@ elif "LOCAL" in os.environ:
 else:
     CONFIG_LIST = [
         {
-            "model": GPT3_5_TURBO_0613,
+            "model": GPT4,
             "api_key": OPENAI_API_KEY,
         }
     ]

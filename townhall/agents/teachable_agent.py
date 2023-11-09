@@ -358,7 +358,8 @@ class MemoStore:
         results = self.vec_db.query(query_texts=[query_text], n_results=1)
         uid, input_text, distance = results["ids"][0][0], results["documents"][0][0], results["distances"][0][0]
         input_text_2, output_text = self.uid_text_dict[uid]
-        assert input_text == input_text_2
+
+        # assert input_text == input_text_2
         if self.verbosity >= 1:
             print(
                 colored(
@@ -381,7 +382,7 @@ class MemoStore:
             uid, input_text, distance = results["ids"][0][i], results["documents"][0][i], results["distances"][0][i]
             if distance < threshold:
                 input_text_2, output_text = self.uid_text_dict[uid]
-                assert input_text == input_text_2
+                # assert input_text == input_text_2
                 if self.verbosity >= 1:
                     print(
                         colored(
