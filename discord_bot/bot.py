@@ -150,6 +150,27 @@ CONNECTIONS = {}
 global IN_VC
 IN_VC = False
 
+def generate_user_agent(name):
+    agent = UserAgent(
+        name=name,
+        max_consecutive_auto_reply=0,
+        human_input_mode="NEVER",
+    )
+    add_agent(agent)
+    return agent
+
+
+def generate_teachable_agent(name):
+    agent = TeachableAgent(
+        name=name,
+        llm_config=LLM_CONFIG,
+        teach_config=TEACH_CONFIG,
+        system_message=DEFAULT_SYSTEM_MESSAGE,
+        human_input_mode="NEVER"
+    )
+    add_agent(agent)
+    return agent
+
 def find_agent(discord_username: str):
     for agent in AGENTS:
         if agent.name == discord_username:
