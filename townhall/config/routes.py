@@ -1,12 +1,13 @@
-from fastapi import Depends, HTTPException, Query, FastAPI
-from sqlmodel import Field, Session, SQLModel, create_engine, select, Relationship
-
+from fastapi import Depends, HTTPException, FastAPI
+from sqlmodel import Session, SQLModel, create_engine, select
 from contextlib import asynccontextmanager
+from townhall.db import Agent
 
 import discord_bot.bot as bot
 
 # TODO: Move to database.py or something
 from townhall.db import User, Thread, Message, MessageResponse
+
 sqlite_file_name = "database.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 connect_args = {"check_same_thread": False}
@@ -58,20 +59,24 @@ async def create_response(*, session: Session = Depends(get_session), message: M
         guru_agent_name = 'guru' + str(user_id)
         print("Looking up agents")
         # TODO: Use agent_id's instead
-        # lookup = session.exec(select(Agent).where(Agent.name == user_agent_name))
-        # user_agent = lookup.one_or_none()
-        # lookup = session.exec(select(Agent).where(Agent.name == guru_agent_name))
-        # guru_agent = lookup.one_or_none()
-        if user_agent is None:
+        lookup = session.exec(select(Agent).where(Agent.name == user_agent_name))
+        db_user_agent = lookup.one_or_none()
+        lookup = session.exec(select(Agent).where(Agent.name == guru_agent_name))
+        db_guru_agent = lookup.one_or_none()
+
+        if db_user_agent is None:
             print("No user agent found, creating new one")
-            user_agent = bot.generate_user_agent(name=user_agent_name)
-            # session.add(user_agent)
-            # session.commit()
-        if guru_agent is None:
+            db_user_agent = Agent(name=guru_agent_name, system_message=bot.DEFAULT_SYSTEM_MESSAGE)
+            session.add(db_user_agent)
+            session.commit()
+        if db_guru_agent is None:
             print("No guru agent found, creating new one")
-            guru_agent = bot.generate_teachable_agent(guru_agent_name)
-            # session.add(guru_agent)
-            # session.commit()
+            db_guru_agent = Agent(name=guru_agent_name, system_message=bot.DEFAULT_SYSTEM_MESSAGE)
+            session.add(db_guru_agent)
+            session.commit()
+        user_agent = bot.generate_user_agent(name=user_agent_name)
+        guru_agent = bot.generate_teachable_agent(name=guru_agent_name)
+
         print("Agents found, starting chat")
         await user_agent.a_initiate_chat(guru_agent, message=message.content, clear_history=False)
         print("Guru response received")

@@ -4,13 +4,9 @@ This module contains the main function to initiate a chat with the assistant.
 # pylint: disable=wrong-import-position
 
 import sys
-import argparse
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-import settings
-from townhall.services.chat_service import ChatService
-from townhall.agents.user_agent import UserAgent
 from townhall.agents.base_agent import BaseAgent
 
 SYSTEM_PROMPT = """
@@ -33,4 +29,3 @@ class Critic(BaseAgent):
         if system_message is None:
             system_message = SYSTEM_PROMPT
         super().__init__(name=name, system_message=system_message, **kwargs)
-

@@ -33,4 +33,3 @@ class AgentBase(SQLModel):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(default=None)
     system_message: Optional[str] = Field(default=DEFAULT_SYSTEM_MESSAGE)
-    _sa_instance_state: Optional[object] = None

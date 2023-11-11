@@ -1,5 +1,4 @@
 from typing import Dict, Optional, List, Union
-from sqlmodel import Field
 from .agent_base import AgentBase
 
 class Agent(AgentBase, table=True):
@@ -7,13 +6,16 @@ class Agent(AgentBase, table=True):
         property_set_methods = {"_name": "set_name"}
 
     _name: str = None
+    system_message: str = None
 
     def __init__(
         self,
         name: str,
+        system_message: str,
     ):
         super().__init__(name=name)
         self._name = name
+        self.system_message = system_message
 
     def set_name(self, value):
         self.name = value
