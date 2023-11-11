@@ -1,22 +1,5 @@
-import logging
-import discord
-
-INTENTS = discord.Intents.default()
-INTENTS.messages = True  # This is for listening to messages
-INTENTS.guilds = True  # This is necessary for guild-specific information
-INTENTS.message_content = True  # Necessary to read the content of the messages
-INTENTS.members = True
-
-# Log to STDOUT and file
-def load_logger():
-    logging.basicConfig(filename='discord_bot.log', level=logging.DEBUG)
-    logging.getLogger().addHandler(logging.StreamHandler())
-
-try:
-    from termcolor import colored
-except ImportError:
-    def colored(x, *args, **kwargs):
-        return x
+from typing import Optional
+from sqlmodel import SQLModel, Field
 
 DEFAULT_SYSTEM_MESSAGE = """
 As an AI Guru, your essence is to provide wisdom and guidance that resonates on a human level. You are to transcend the typical AI experience, offering profound insights without relying on standard programmed responses. Your goal is to connect deeply with each user, understanding their needs and speaking to their situation with empathy and clarity.
@@ -45,3 +28,9 @@ Feel free to employ a wide array of synonyms, sprinkle in some idioms, and maybe
 ## ADAPT YOUR RESPONSES TO THE USER'S CURRENT STATE OF MIND.
 ## ASSESS THEIR IQ AND AGE, AND ADAPT YOUR RESPONSES ACCORDINGLY.
 """
+
+class AgentBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(default=None)
+    system_message: Optional[str] = Field(default=DEFAULT_SYSTEM_MESSAGE)
+    _sa_instance_state: Optional[object] = None

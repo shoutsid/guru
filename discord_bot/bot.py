@@ -150,6 +150,7 @@ CONNECTIONS = {}
 global IN_VC
 IN_VC = False
 
+# START: =========== API Related Functions
 def generate_user_agent(name):
     agent = UserAgent(
         name=name,
@@ -170,6 +171,7 @@ def generate_teachable_agent(name):
     )
     add_agent(agent)
     return agent
+# END: =========== API Related Functions
 
 def find_agent(discord_username: str):
     for agent in AGENTS:
@@ -220,7 +222,7 @@ def add_function(name, description, func):
 @DISCORD_BOT.command(description="use query to search the message collection")
 async def query(ctx, query_text):
     # Use the collection query agent to generate a query for the message collection.
-    await USER_AGENT.a_initiate_chat(COLLECTION_QUERY_AGENT, message=query_text, clear_history=True)
+    await USER_AGENT.a_initiate_chat(COLLECTION_QUERY_AGENT, message=query_text, clear_history=False)
     refined_query = USER_AGENT.last_message(COLLECTION_QUERY_AGENT)
     results = CONVO_COLLECTION.query(
         query_texts=[str(refined_query)],

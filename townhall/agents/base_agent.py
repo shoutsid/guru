@@ -4,6 +4,7 @@ assistant agents in Townhall
 """
 
 from autogen import AssistantAgent
+# from townhall.core.assistant_agent import AssistantAgent
 
 import settings
 
@@ -13,6 +14,7 @@ class BaseAgent(AssistantAgent):
     It inherits from the `AssistantAgent` class and provides a starting point for implementing
     custom assistant agents.
     """
+
     def __init__(self, name=None, llm_config=None, **kwargs):
         if name is None:
             name = "DefaultAgentName"
