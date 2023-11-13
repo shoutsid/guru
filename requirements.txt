@@ -35,7 +35,7 @@ pyaudio
 chromadb
 qdrant_client[fastembed]==1.6.4
 llama_index
-duckduckgo-search==3.9.4
+duckduckgo-search==3.9.5
 langchain-experimental==0.0.37
 wikipedia==1.4.0
 elevenlabs==0.2.26
