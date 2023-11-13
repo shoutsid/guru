@@ -5,8 +5,9 @@ class Agent(AgentBase, table=True):
     class Config:
         property_set_methods = {"_name": "set_name"}
 
-    _name: str = None
+    _name: str
     system_message: str = None
+    openai_id: str = None
 
     def __init__(
         self,

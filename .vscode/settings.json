@@ -8,5 +8,14 @@
     "editor.codeActionsOnSave": {
       "source.organizeImports": false
     }
-  }
+  },
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "driver": "SQLite",
+      "database": "E:\\workspace\\guru\\database.db",
+      "name": "sql db"
+    }
+  ],
+  "sqltools.useNodeRuntime": true
 }

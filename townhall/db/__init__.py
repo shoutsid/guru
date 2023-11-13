@@ -2,4 +2,8 @@ from .message import *
 from .thread import *
 from .user import *
 from .agent import *
+from .entity import *
+from .opinion import *
+from .topic import *
+from .emotion import *
 from .open_ai_wrapper import *

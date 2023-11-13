@@ -6,11 +6,10 @@ from townhall.db import Agent
 
 import discord_bot.bot as bot
 
-# TODO: Move to database.py or something
 from townhall.db import User, Thread, Message, MessageResponse
 
 logging.basicConfig(filename='discord_bot.log', level=logging.DEBUG)
-logging.getLogger().addHandler(logging.StreamHandler())
+# logging.getLogger().addHandler(logging.StreamHandler())
 
 sqlite_file_name = "database.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
@@ -69,7 +68,7 @@ async def create_response(*, session: Session = Depends(get_session), message: M
 
     if db_user_agent is None:
         logging.debug("No user agent found, creating new one")
-        db_user_agent = Agent(name=user_agent_name, system_message=bot.DEFAULT_SYSTEM_MESSAGE)
+        db_user_agent = Agent(name=user_agent_name, system_message=bot.DEFAULT_SYSTEM_MESSAGE,)
         session.add(db_user_agent)
         session.commit()
     if db_guru_agent is None:
@@ -77,8 +76,9 @@ async def create_response(*, session: Session = Depends(get_session), message: M
         db_guru_agent = Agent(name=guru_agent_name, system_message=bot.DEFAULT_SYSTEM_MESSAGE)
         session.add(db_guru_agent)
         session.commit()
+
     user_agent = bot.generate_user_agent(name=user_agent_name)
-    guru_agent = bot.generate_teachable_agent(name=guru_agent_name)
+    guru_agent = bot.generate_teachable_agent(name=guru_agent_name, db_id=db_guru_agent.id)
 
     if user_id:
         # we have everything, do the things
@@ -106,17 +106,19 @@ async def create_response(*, session: Session = Depends(get_session), message: M
     logging.debug("Update agents with oai_messages")
     msgs = []
     for msg in thread.messages:
-        logging.debug(msg)
-        if msg.role == 'user':
-            logging.debug("Sending message to user agent")
-            await user_agent.a_send(msg.content, guru_agent, request_reply=False, silent=False)
-            logging.debug("Message sent to user agent")
+        # replace guru with assistant
+        oai_message = { 'content': msg.content, 'role': msg.role }
+        print("changing role: ", msg.role)
+        if msg.role == 'guru':
+            oai_message['role'] = 'assistant'
+            guru_agent._oai_messages[guru_agent].append(oai_message)
+            user_agent._oai_messages[guru_agent].append(oai_message)
         else:
-            logging.debug("Sending message to guru agent")
-            await guru_agent.a_send(msg.content, user_agent, request_reply=False, silent=False)
-            logging.debug("Message sent to guru agent")
+            oai_message['role'] = 'user'
+            guru_agent._oai_messages[user_agent].append(oai_message)
+            user_agent._oai_messages[user_agent].append(oai_message)
         msgs.append(msg)
-    logging.debug(msgs)
+    # logging.debug(msgs)
     logging.debug("Agents updated")
 
     logging.debug("Thread found, adding message")
@@ -128,6 +130,7 @@ async def create_response(*, session: Session = Depends(get_session), message: M
     logging.debug("Message added, starting chat")
 
     logging.debug("Agents found, starting chat")
+    # guru_agent._invoke_assistant(messages=msgs, sender=user_agent)
     await user_agent.a_initiate_chat(guru_agent, message=message.content, clear_history=False)
     logging.debug("Guru response received")
     last_message = guru_agent.last_message(user_agent).copy()

@@ -1,7 +1,6 @@
 pytest
 pytest-asyncio
 pytest-mock
-pyautogen==0.1.14
 matplotlib
 scikit-learn
 tensorboard
@@ -25,6 +24,9 @@ tiktoken
 librosa
 pyaudio
 
+pyautogen @git+https://github.com/microsoft/autogen@main#egg=pyautogen
+openai~=1.2
+
 # You would normally install this, but this will bring
 # over torch and other dependencies that we don't want
 # Instead we are managing the requirements ourselves.
@@ -33,6 +35,7 @@ pyaudio
 # sentence_transformers - BAD introduces torch
 # pypdf
 chromadb
+alembic==1.12.1
 qdrant_client[fastembed]==1.6.4
 llama_index
 duckduckgo-search==3.9.4
@@ -40,10 +43,16 @@ langchain-experimental==0.0.37
 wikipedia==1.4.0
 py-cord[voice]==2.4.1
 pydub==0.25.1
-openai
 arxiv==2.0.0
 pysqlite3-binary
 fastapi==0.104.1
 uvicorn==0.24.0
 sqlmodel==0.0.11
 elevenlabs
+spacy==3.7.2
+
+# hopefully we can get rid of the torch requirements
+# Used for conversational analysis
+transformers
+tensorflow
+bertopic

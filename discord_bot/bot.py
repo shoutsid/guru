@@ -25,10 +25,12 @@ from autogen import Agent
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from townhall.agents.teachable_agent import TeachableAgent
+# from townhall.agents.teachable_agent import TeachableAgent
+from townhall.agents.enhanced_teachable_agent import EnhancedTeachableAgent
 from townhall.agents.user_agent import UserAgent
 from townhall.managers.group_chat_manager import GroupChatManagerExpanded
 from townhall.groups.group_chat import GroupChatExpanded
+from townhall.db.utils import SQL_ENGINE, SQLModel
 from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE
 from discord_bot.audio_to_text import AudioToText
 from settings import CONFIG_LIST
@@ -36,6 +38,12 @@ from settings import CONFIG_LIST
 load_logger()
 load_dotenv()
 
+from townhall.db.agent import Agent as AgentModel
+from sqlmodel import Session
+SQL_DB_SESSION = Session(SQL_ENGINE)
+SQLModel.metadata.create_all(SQL_ENGINE)
+
+# This is completely a test db and used to save discord in reality
 # Can we create regular db tables in chroma?
 # CONVO_DB_CONNECTION.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, content TEXT, author TEXT, channel TEXT, timestamp TEXT)")
 CONVO_DB_CONNECTION = chromadb.PersistentClient(path="./.tmp/ai_db/conversations.db")
@@ -75,11 +83,7 @@ TOOL_NAMES = [
     # 'ddg-search', 'requests_all', 'terminal', 'arxiv', 'wikipedia', 'sleep'
 ]
 TOOLS = load_tools(TOOL_NAMES)
-# TOOLS += [Tool.from_function(
-#     func=on_speak,
-#     name="speak_in_discord",
-#     description="useful for when you need to speak and communicate with users in discord."
-# )]
+
 LLM_CONFIG = {
     "request_timeout": 180,
     "config_list": CONFIG_LIST,
@@ -90,43 +94,33 @@ LLM_CONFIG = {
 if TOOL_NAMES.__len__() > 0:
     LLM_CONFIG["functions"] = FUNCTIONS_CONFIG
 
+# find or  a new agent row based on the discord username
+from sqlmodel import select
+db_agent = SQL_DB_SESSION.exec(select(AgentModel).where(AgentModel.name == "DISCORD_BOT"))
+db_agent = db_agent.one_or_none()
+if db_agent is None:
+    db_agent = AgentModel(name="DISCORD_BOT", system_message=DEFAULT_SYSTEM_MESSAGE)
+    SQL_DB_SESSION.add(db_agent)
+    SQL_DB_SESSION.commit()
+    SQL_DB_SESSION.refresh(db_agent)
+
 TEACH_CONFIG={
     "verbosity": 3,  # 0 for basic info, 1 to add memory operations, 2 for analyzer messages, 3 for memo lists.
     "reset_db": False,  # Set to True to start over with an empty database.
     "path_to_db_dir": "./.cache/ai_db",  # Path to the directory where the database will be stored.
     "recall_threshold": 1.5,  # Higher numbers allow more (but less relevant) memos to be recalled.
 }
-TEACHABLE_AGENT = TeachableAgent(
+
+TEACHABLE_AGENT = EnhancedTeachableAgent(
     name="Assistant",
     llm_config=LLM_CONFIG,
-    teach_config=TEACH_CONFIG,
-    system_message=DEFAULT_SYSTEM_MESSAGE,
-    human_input_mode="NEVER"
+    # teach_config=TEACH_CONFIG,
+    # system_message=DEFAULT_SYSTEM_MESSAGE,
+    instructions=DEFAULT_SYSTEM_MESSAGE,
+    db_agent_id=db_agent.id,
+    # human_input_mode="NEVER"
+
 )
-
-COLLECTION_QUERY_SYSTEM_MESSAGE = """
-You are an AI language model trained by OpenAI. Your task is to generate a single, accurate user prompt for searching the message collection, representing all the messages made in this Discord channel.
-
-To generate the query, use the following code snippet as a reference:
-
-collection.query(
-    query_texts=["<user prompt>"],
-)
-
-Replace <user prompt> with a specific user prompt from the previous conversation that you want to use as the query. Choose a user prompt that accurately captures the context and intent of the search you wish to perform.
-
-Only provide the generated user prompt as the response text, without any clarifications or additional explanations.
-
-Please provide the specific user prompt you want to use as the query.
-"""
-COLLECTION_QUERY_AGENT = TeachableAgent(
-    name="Collection Query Agent",
-    llm_config=LLM_CONFIG,
-    teach_config=TEACH_CONFIG,
-    system_message=DEFAULT_SYSTEM_MESSAGE,
-    human_input_mode="NEVER"
-)
-
 USER_AGENT = UserAgent(
     name="User",
     max_consecutive_auto_reply=0,
@@ -160,14 +154,15 @@ def generate_user_agent(name):
     add_agent(agent)
     return agent
 
-
-def generate_teachable_agent(name):
-    agent = TeachableAgent(
+def generate_teachable_agent(name, db_id):
+    agent = EnhancedTeachableAgent(
         name=name,
         llm_config=LLM_CONFIG,
-        teach_config=TEACH_CONFIG,
-        system_message=DEFAULT_SYSTEM_MESSAGE,
-        human_input_mode="NEVER"
+        instructions=DEFAULT_SYSTEM_MESSAGE,
+        db_agent_id=db_id,
+        # teach_config=TEACH_CONFIG,
+        # system_message=DEFAULT_SYSTEM_MESSAGE,
+        # human_input_mode="NEVER"
     )
     add_agent(agent)
     return agent
@@ -266,9 +261,9 @@ async def leave(ctx):
         IN_VC = False
         logging.info("Left %s channel", ctx.author.voice.channel.name)
 
-@DISCORD_BOT.command(description="Learn from the conversation")
-async def learn(ctx):
-    DISCORD_BOT.dispatch("learn", ctx)
+# @DISCORD_BOT.command(description="Learn from the conversation")
+# async def learn(ctx):
+#     DISCORD_BOT.dispatch("learn", ctx)
 
 @DISCORD_BOT.command(description="Join and Start Recording")
 async def start(ctx):
@@ -421,11 +416,11 @@ async def on_join_channel(ctx):
     await ctx.author.voice.channel.connect()
     logging.info("Joined %s channel", ctx.author.voice.channel.name)
 
-@DISCORD_BOT.event
-async def on_learn(ctx):
-    TEACHABLE_AGENT.learn_from_user_feedback()
-    await ctx.send("Learned from the conversation, this does not mean I remember everything!")
-    logging.info("Learned from the conversation")
+# @DISCORD_BOT.event
+# async def on_learn(ctx):
+#     TEACHABLE_AGENT.learn_from_user_feedback()
+#     await ctx.send("Learned from the conversation, this does not mean I remember everything!")
+#     logging.info("Learned from the conversation")
 
 @DISCORD_BOT.event
 async def on_speak(ctx, audio_file_path: str):
