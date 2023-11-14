@@ -11,3 +11,6 @@ def init_db():
 def get_session():
     with Session(SQL_ENGINE) as session:
         yield session
+
+def convert_db_messages_to_dict(messages):
+    return [{'id': message.id, 'content': message.content} for message in messages]
