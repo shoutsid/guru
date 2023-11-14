@@ -1,6 +1,6 @@
 import logging
 
-from townhall.helpers.conversation_analyzer_2 import *
+from townhall.helpers.conversation_analyzer import *
 from townhall.db.utils import Session, SQL_ENGINE
 
 logging.basicConfig(level=logging.DEBUG)

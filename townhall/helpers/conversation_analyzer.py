@@ -17,6 +17,7 @@ import nltk
 from nltk.sentiment import SentimentIntensityAnalyzer
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import CountVectorizer
+
 from typing import List, Dict, Any
 from sqlmodel import select
 from collections import defaultdict
@@ -34,44 +35,47 @@ class ConversationAnalyzer:
         self.analyzer = SentimentIntensityAnalyzer()
         self.lda_model = LatentDirichletAllocation(n_components=5)  # Adjustable parameter
         self.vectorizer = CountVectorizer(stop_words='english')
+        self.sentiment_model = pipeline('sentiment-analysis', model='distilbert-base-uncased-finetuned-sst-2-english')
         self.emotion_classifier = pipeline('text-classification', model='bhadresh-savani/distilbert-base-uncased-emotion')
-
-    def analyze_emotions(self, text: str) -> str:
-        """
-        Analyzes the emotion of the given text.
-        :param text: The text to analyze.
-        :return: The detected emotion.
-        """
-        result = self.emotion_classifier(text)
-        # Assuming the highest scoring emotion is the most relevant
-        return result[0]['label']
-
 
     @staticmethod
     def ensure_nltk_resources():
         try:
-            # Trying to use the resource to check if it's already downloaded
             nltk.data.find('sentiment/vader_lexicon')
         except LookupError:
-            # Download the resource if not found
             print("Downloading NLTK resources for SentimentIntensityAnalyzer...")
             nltk.download('vader_lexicon')
 
-
     def save_analysis_results(self, conversation_analysis: Dict[str, Any], session):
         # Save entities
-        for text, (label, id) in conversation_analysis["entities"].items():
-            session.add(Entity(text=text, label=label, message_id=id))
-        # Save opinions
-        for sentence, (sentiment_score, id) in conversation_analysis["opinions"].items():
-            session.add(Opinion(sentence=sentence, sentiment_score=sentiment_score, message_id=id))
-        # Save topics
-        for topic_index, keywords in conversation_analysis["topics"].items():
-            session.add(Topic(topic_index=topic_index, keywords=", ".join(keywords)))
-        # Save Emotions
-        for message_id, emotion in conversation_analysis["emotions"].items():
-            session.add(Emotion(message_id=message_id, emotion=emotion))
+        print("Entities:")
+        for text, (label, message_id) in conversation_analysis["entities"].items():
+            if label is not None:
+                session.add(Entity(text=text, label=label, message_id=message_id))
 
+        # Save opinions
+        print("Opinions:")
+        for _, (sentiment_score, message_id) in conversation_analysis["opinions"].items():
+            print(sentiment_score)
+            if sentiment_score is not None:
+                session.add(Opinion(sentiment_score=sentiment_score, message_id=message_id))
+
+        # Save topics
+        print("Topics:")
+        for _, (keywords, message_id) in conversation_analysis["topics"].items():
+            print(keywords)
+            if keywords is not None:
+                print(keywords)
+                session.add(Topic(keywords=", ".join(keywords), message_id=message_id))
+            else:
+                continue
+
+        # Save Emotions
+        print("Emotions:")
+        for _, (emotion, message_id) in conversation_analysis["emotions"].items():
+            print(emotion)
+            if emotion is not None:
+                session.add(Emotion(message_id=message_id, emotion=emotion))
 
         session.commit()
 
@@ -80,57 +84,73 @@ class ConversationAnalyzer:
 
         # Retrieve entities
         entities = session.exec(select(Entity)).all()
-        results["entities"] = [{"text": e.text, "label": e.label} for e in entities]
-
+        results["entities"] = [{"text": e.text, "label": e.label, "message_id": e.message_id} for e in entities]
         # Retrieve opinions
         opinions = session.exec(select(Opinion)).all()
-        results["opinions"] = [{"sentence": o.sentence, "sentiment_score": o.sentiment_score} for o in opinions]
-
+        results["opinions"] = [{"sentiment_score": o.sentiment_score, "message_id": o.message_id} for o in opinions]
         # Retrieve topics
         topics = session.exec(select(Topic)).all()
-        results["topics"] = [{"topic_index": t.topic_index, "keywords": t.keywords} for t in topics]
-
+        results["topics"] = [{"keywords": t.keywords, "message_id": t.message_id} for t in topics]
         # Retrieve emotions
-        topics = session.exec(select(Emotion)).all()
-        results["topics"] = [{"emotion": t.emotion, "message_id": t.message_id} for t in topics]
+        emotions = session.exec(select(Emotion)).all()
+        results["emotions"] = [{"emotion": t.emotion, "message_id": t.message_id} for t in emotions]
 
         return results
 
     def analyze_conversation(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         conversation_analysis = {"entities": {}, "opinions": {}, "topics": {}, "emotions": {}}
 
-        for msg in messages:
-            doc = self.nlp(msg["content"])
-            # Named Entity Recognition
-            self._extract_entities(doc, conversation_analysis["entities"], msg["id"])
-            # Sentiment Analysis
-            self._analyze_sentiments(doc, conversation_analysis["opinions"], msg["id"])
-
-            # Emotion Analysis
-            emotion = self.analyze_emotions(msg["content"])
-            conversation_analysis["emotions"][msg["id"]] = emotion
-
-
-        combined_text = " ".join([msg["content"] for msg in messages if isinstance(msg["content"], str)])
-        self._extract_topics(combined_text, conversation_analysis["topics"])
+        for _, msg in enumerate(messages):
+            # Entity analysis
+            doc = self.analyze_entities(msg)
+            self.extract_entities(doc, conversation_analysis["entities"], msg["id"])
+            # Sentiment analysis
+            doc = self.analyze_sentiment(msg["content"])
+            self.extract_sentiment(doc, conversation_analysis["opinions"], msg["id"])
+            # Topic analysis
+            doc = self.analyze_topics(msg["content"])
+            self.extract_topics(doc, conversation_analysis["topics"], msg["id"])
+            # Emotion analysis
+            doc = self.analyze_emotions(msg["content"])
+            self.extract_emotions(doc, conversation_analysis["emotions"], msg["id"])
 
         return conversation_analysis
 
-    def _extract_entities(self, doc, entities: Dict[str, str], message_id: int):
+    def analyze_emotions(self, text: str) -> str:
+        result = self.emotion_classifier(text)
+        return result
+
+    def analyze_sentiment(self, text: str) -> float:
+        result = self.sentiment_model(text)
+        return result
+
+    def analyze_entities(self, msg: Dict[str, str]):
+        doc = self.nlp(msg["content"])
+        return doc
+
+    def analyze_topics(self, text: str):
+        X = self.vectorizer.fit_transform([text])
+        self.lda_model.fit(X)
+        doc = self.lda_model.transform(X)
+        return doc
+
+    def extract_emotions(self, doc, emotions: Dict[str, str], message_id: int):
+        doc = doc[0]['label']
+        emotions[message_id] = (doc, message_id)
+        return
+
+    def extract_sentiment(self, doc, opinions: Dict[str, float], message_id: int):
+        score = doc[0]['score'] if doc[0]['label'] == 'POSITIVE' else -doc[0]['score']
+        opinions[message_id] = (score, message_id)
+        return
+
+    def extract_entities(self, doc, entities: Dict[str, str], message_id: int):
         for ent in doc.ents:
             entities[ent.text] = (ent.label_, message_id)
 
-    def _analyze_sentiments(self, doc, opinions: Dict[str, float], message_id: int):
-        for sent in doc.sents:
-            sentiment_score = self.analyzer.polarity_scores(sent.text)["compound"]
-            opinions[sent.text] = (sentiment_score, message_id)
-
-    def _extract_topics(self, text: str, topics: Dict[int, List[str]]):
-        X = self.vectorizer.fit_transform([text])
-        self.lda_model.fit(X)
+    def extract_topics(self, doc, topics: Dict[int, List[str]], message_id: int):
         feature_names = self.vectorizer.get_feature_names_out()
-        for topic_idx, topic in enumerate(self.lda_model.components_):
-            topics[topic_idx] = [feature_names[i] for i in topic.argsort()[:-6:-1]]
+        topics[message_id] = (feature_names, message_id)
 
 # Function to analyze sentiment trends over time
 def sentiment_trend_over_time(session, thread_id: int) -> Dict[datetime, float]:
