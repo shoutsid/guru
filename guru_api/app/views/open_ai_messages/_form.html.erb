@@ -1,0 +1,67 @@
+<%= form_with(model: open_ai_message) do |form| %>
+  <% if open_ai_message.errors.any? %>
+    <div style="color: red">
+      <h2><%= pluralize(open_ai_message.errors.count, "error") %> prohibited this open_ai_message from being saved:</h2>
+
+      <ul>
+        <% open_ai_message.errors.each do |error| %>
+          <li><%= error.full_message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= form.label :openai_id, style: "display: block" %>
+    <%= form.text_field :openai_id %>
+  </div>
+
+  <div>
+    <%= form.label :object, style: "display: block" %>
+    <%= form.text_field :object %>
+  </div>
+
+  <div>
+    <%= form.label :openai_created_at, style: "display: block" %>
+    <%= form.number_field :openai_created_at %>
+  </div>
+
+  <div>
+    <%= form.label :openai_thread_id, style: "display: block" %>
+    <%= form.text_field :openai_thread_id %>
+  </div>
+
+  <div>
+    <%= form.label :role, style: "display: block" %>
+    <%= form.text_field :role %>
+  </div>
+
+  <div>
+    <%= form.label :content, style: "display: block" %>
+    <%= form.text_area :content %>
+  </div>
+
+  <div>
+    <%= form.label :file_ids, style: "display: block" %>
+    <%= form.text_area :file_ids %>
+  </div>
+
+  <div>
+    <%= form.label :openai_assitant_id, style: "display: block" %>
+    <%= form.text_field :openai_assitant_id %>
+  </div>
+
+  <div>
+    <%= form.label :metadata, style: "display: block" %>
+    <%= form.text_area :metadata %>
+  </div>
+
+  <div>
+    <%= form.label :run_id, style: "display: block" %>
+    <%= form.text_field :run_id %>
+  </div>
+
+  <div>
+    <%= form.submit %>
+  </div>
+<% end %>

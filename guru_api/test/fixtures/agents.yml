@@ -1,0 +1,25 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  name: MyString
+  openai_id: MyString
+  openai_object: MyString
+  openai_created_at: 1
+  description: MyText
+  model: MyString
+  system_message: MyText
+  tools: MyText
+  file_ids: MyText
+  metadata: MyText
+
+two:
+  name: MyString
+  openai_id: MyString
+  openai_object: MyString
+  openai_created_at: 1
+  description: MyText
+  model: MyString
+  system_message: MyText
+  tools: MyText
+  file_ids: MyText
+  metadata: MyText
