@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2023_11_15_164004) do
+ActiveRecord::Schema[7.1].define(version: 2023_11_15_202554) do
   create_table "agents", force: :cascade do |t|
     t.string "name"
     t.string "openai_id"
@@ -48,6 +48,14 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_15_164004) do
     t.integer "openai_created_at"
     t.integer "openai_updated_at"
     t.text "meta_data"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "users", force: :cascade do |t|
+    t.string "username"
+    t.string "discriminator"
+    t.string "avatar"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end

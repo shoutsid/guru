@@ -1,6 +1,5 @@
 class OpenAiThread < ApplicationRecord
-    validates :openai_id, presence: true, uniqueness: true
-
+    # validates :openai_id, uniqueness: true
     # serialize :metadata, type: Hash
     # {
     #   "id": "thread_abc123",

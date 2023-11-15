@@ -1,7 +1,10 @@
 Rails.application.routes.draw do
-  # json only
-  resources :open_ai_messages, defaults: { format: :json }
-  resources :open_ai_threads, defaults: { format: :json }
+
+  # JSON only
+  resources :users, defaults: { format: :json }
+  resources :threads, defaults: { format: :json } do
+    resources :messages, defaults: { format: :json }
+  end
   resources :agents, defaults: { format: :json }
 
   get "up" => "rails/health#show", as: :rails_health_check

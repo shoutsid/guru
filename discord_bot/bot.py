@@ -34,6 +34,7 @@ from townhall.db.utils import SQL_ENGINE, SQLModel
 from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE
 from discord_bot.audio_to_text import AudioToText
 from settings import CONFIG_LIST
+# from learn import learn
 
 load_logger()
 load_dotenv()
@@ -213,17 +214,6 @@ def add_function(name, description, func):
     FUNCTIONS_CONFIG.append(generate_llm_config(tool))
 
 # =========== COMMANDS
-
-@DISCORD_BOT.command(description="use query to search the message collection")
-async def query(ctx, query_text):
-    # Use the collection query agent to generate a query for the message collection.
-    await USER_AGENT.a_initiate_chat(COLLECTION_QUERY_AGENT, message=query_text, clear_history=False)
-    refined_query = USER_AGENT.last_message(COLLECTION_QUERY_AGENT)
-    results = CONVO_COLLECTION.query(
-        query_texts=[str(refined_query)],
-
-    )
-    await ctx.send(f"Here are the results for your query: {results}")
 
 @DISCORD_BOT.command(description="Status Check")
 async def status(ctx):
@@ -418,7 +408,8 @@ async def on_join_channel(ctx):
 
 # @DISCORD_BOT.event
 # async def on_learn(ctx):
-#     TEACHABLE_AGENT.learn_from_user_feedback()
+#     # TEACHABLE_AGENT.learn_from_user_feedback()
+#     learn()
 #     await ctx.send("Learned from the conversation, this does not mean I remember everything!")
 #     logging.info("Learned from the conversation")
 
@@ -595,35 +586,3 @@ async def finished_callback(sink, ctx):
     for user_id, audio in sink.audio_data.items():
         await process_audio(ctx, sink, audio, files, timestamp, user_id)
     logging.info("Finished recording in %s channel", ctx.author.voice.channel.name)
-
-# CHUNK = 1024
-# FORMAT = pyaudio.paInt16
-# AUDIO_CHANNELS = 2
-# RATE = 44100
-# RECORD_SECONDS = 10  # Adjust the recording duration as needed
-# FILENAME = "recorded_audio.wav"  # Output file name
-
-# def save_audio(frames):
-#     p = pyaudio.PyAudio()
-#     wf = wave.open(FILENAME, 'wb')
-#     wf.setnchannels(AUDIO_CHANNELS)
-#     wf.setsampwidth(p.get_sample_size(FORMAT))
-#     wf.setframerate(RATE)
-#     wf.writeframes(b''.join(frames))
-#     wf.close()
-
-# @DISCORD_BOT.command(description="Record audio from the voice channel")
-# async def record_audio(ctx):
-#     if ctx.voice_client is None:
-#         await ctx.send("Not connected to a voice channel.")
-#         return
-#     audio_stream = ctx.voice_client.client._connection._get_voice_pipeline().listen(discord.AudioReceiveStream)
-#     frames = []
-#     for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-#         data = await audio_stream.read()
-#         frames.append(data)
-#     save_audio(frames)
-
-if __name__ == "__main__":
-    start_task.start()
-    DISCORD_BOT.run(BOT_TOKEN)

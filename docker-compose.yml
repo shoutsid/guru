@@ -1,5 +1,3 @@
-# TODO: Add ai.py service
-
 version: '2.23'
 
 services:
@@ -21,4 +19,8 @@ services:
     ports:
       - 8000:8000
 
-
+  # Production Use only
+  guru_api:
+    build:
+      context: ./guru_api
+      dockerfile: Dockerfile
