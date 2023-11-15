@@ -1,5 +1,5 @@
 class MessagesController < ApplicationController
-  before_action :set_open_ai_thread, only: %i[ index show edit update destroy ]
+  before_action :set_open_ai_thread, only: %i[ index show create edit update destroy ]
   before_action :set_open_ai_message, only: %i[ show edit update destroy ]
 
   def index

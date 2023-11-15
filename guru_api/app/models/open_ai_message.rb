@@ -1,5 +1,6 @@
 class OpenAiMessage < ApplicationRecord
-    validates :openai_id, presence: true, uniqueness: true
+    validates_presence_of :content, :role
+    # validates :openai_id, presence: true, uniqueness: true
     # serialize :file_ids, type: Array
     # serialize :metadata, type: Hash
     # serialize :content, type: Hash

@@ -7,5 +7,7 @@ Rails.application.routes.draw do
   end
   resources :agents, defaults: { format: :json }
 
+  post '/chat/completions', to: 'messages#create'
+
   get "up" => "rails/health#show", as: :rails_health_check
 end
