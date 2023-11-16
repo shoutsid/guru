@@ -8,7 +8,7 @@ from guru.api.threads_client import list_threads, create_thread
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
 import os
-import re
+import asyncio
 import discord
 import time
 # from dotenv import load_dotenv
@@ -17,7 +17,6 @@ __import__('pysqlite3')
 import sys
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
-import chromadb
 from discord.ext import commands, tasks
 from langchain.agents import load_tools
 from langchain.tools import Tool, ElevenLabsText2SpeechTool
@@ -386,40 +385,40 @@ async def on_message_update(message):
 
 @DISCORD_BOT.event
 async def on_update_channel(channel):
-    logging.info("Updating channel %s", channel.name)
+    channel_name = channel.name
+    logging.info(f"Updating channel {channel_name}")
+
     if channel not in CHANNELS:
-        logging.info("Adding channel %s", channel.name)
+        logging.info(f"Adding channel {channel_name}")
         CHANNELS.append(channel)
-    # can i be discord.TextChannel, discord.VoiceChannel
-    if isinstance(channel, discord.TextChannel) or isinstance(channel, discord.VoiceChannel):
-        # Retry mechanism with a wait time of 5 seconds
+
+    if isinstance(channel, (discord.TextChannel, discord.VoiceChannel)):
         for i in range(3):
             try:
-                response = list_threads(discord=True, discord_channel=channel.name)
-                # response can be a list
-                if len(response) == 0:
+                response = list_threads(discord=True, discord_channel=channel_name)
+
+                if not response:
                     logging.info("No threads found")
                     logging.info("Creating a thread for channel")
                     thread_data = {
-                        "discord_channel": channel.name,
+                        "discord_channel": channel_name,
                         "discord": True,
                     }
                     response = create_thread(thread_data)
                     logging.info("Created thread")
-                    THREADS.append(response)
+                    THREADS.append(response[0])
 
                 else:
                     logging.info("Found threads")
-                    logging.info(response[0]["discord_channel"])
                     for thread in response:
-                        if thread["discord_channel"] == channel.name:
+                        if thread["discord_channel"] == channel_name:
                             logging.info("Found thread")
                             THREADS.append(thread)
                             break
                 break
             except Exception as e:
                 logging.error(f"Error occurred while listing threads: {e}")
-                time.sleep(5)
+                await asyncio.sleep(5)
 
 @DISCORD_BOT.event
 async def on_member_join(member):
