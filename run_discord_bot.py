@@ -3,17 +3,11 @@ TODO: Add nice discord responses (pages?)
 TODO: Send back the audio to the channel along with the text, so that the user can hear the response when not in VC.
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
-from guru.db.agent import Agent as AgentModel
-from guru.db.utils import SQL_ENGINE, SQLModel
-from guru.groups.group_chat import GroupChatExpanded
-from guru.managers.group_chat_manager import GroupChatManagerExpanded
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
 import os
 import re
 import discord
-import pyaudio
-import wave
 import time
 from dotenv import load_dotenv
 
@@ -25,13 +19,13 @@ import chromadb
 from discord.ext import commands, tasks
 from langchain.agents import load_tools
 from langchain.tools import Tool, ElevenLabsText2SpeechTool
-from langchain.vectorstores import Chroma
 from autogen import Agent
 
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE
+from guru.db.agent import Agent as AgentModel
 from discord_bot.audio_to_text import AudioToText
 from settings import CONFIG_LIST
 # from learn import learn
@@ -39,7 +33,12 @@ from settings import CONFIG_LIST
 load_logger()
 load_dotenv()
 
-from sqlmodel import Session
+from sqlmodel import Session, create_engine, SQLModel, select
+sqlite_file_name = "guru_api/storage/development.sqlite3"
+sqlite_url = f"sqlite:///{sqlite_file_name}"
+connect_args = {"check_same_thread": False}
+SQL_ENGINE = create_engine(sqlite_url, echo=True, connect_args=connect_args)
+
 SQL_DB_SESSION = Session(SQL_ENGINE)
 SQLModel.metadata.create_all(SQL_ENGINE)
 
@@ -95,7 +94,7 @@ if TOOL_NAMES.__len__() > 0:
     LLM_CONFIG["functions"] = FUNCTIONS_CONFIG
 
 # find or  a new agent row based on the discord username
-from sqlmodel import select
+# from sqlmodel import select
 db_agent = SQL_DB_SESSION.exec(select(AgentModel).where(AgentModel.name == "DISCORD_BOT"))
 db_agent = db_agent.one_or_none()
 if db_agent is None:
@@ -585,3 +584,5 @@ async def finished_callback(sink, ctx):
     for user_id, audio in sink.audio_data.items():
         await process_audio(ctx, sink, audio, files, timestamp, user_id)
     logging.info("Finished recording in %s channel", ctx.author.voice.channel.name)
+
+DISCORD_BOT.run(BOT_TOKEN)

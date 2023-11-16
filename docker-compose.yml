@@ -5,14 +5,19 @@ services:
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
+    env_file:
+      - .env
     volumes:
       - .:/app
-    command: python3 discord_bot/bot.py
+    command: python3 run_discord_bot.py
 
   agent_api:
+    container_name: agent_api
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
+    env_file:
+      - .env
     volumes:
       - .:/app
     command: python3 main.py
@@ -21,6 +26,7 @@ services:
 
   # Production Use only
   guru_api:
+    container_name: guru_api
     build:
       context: ./guru_api
       dockerfile: Dockerfile
@@ -29,14 +35,13 @@ services:
         - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
         - AGENT_API=http://agent_api:8000
     depends_on:
-      agent_api:
-        condition: service_healthy
+      - agent_api
     links:
       - agent_api:agent_api
     env_file:
       - .env
     volumes:
-      - guru_api_storage:/app/storage/
+      - guru_api_storage:/rails/storage/
     ports:
       - 3000:3000
 

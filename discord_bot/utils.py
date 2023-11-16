@@ -9,8 +9,9 @@ INTENTS.members = True
 
 # Log to STDOUT and file
 def load_logger():
-    logging.basicConfig(filename='discord_bot.log', level=logging.DEBUG)
-    logging.getLogger().addHandler(logging.StreamHandler())
+    pass
+    # logging.basicConfig(filename='discord_bot.log', level=logging.DEBUG)
+    # logging.getLogger().addHandler(logging.StreamHandler())
 
 try:
     from termcolor import colored

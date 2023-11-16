@@ -4,7 +4,9 @@ class ChatController < ApplicationController
   def completion
     # POST request to localhost:8000/chat/completion?thread_id=1&id=1
     # with body: { "message": "Hello, I'm a human", "role": "user" }
-    response = HTTParty.post('http://localhost:8000/ai/response?' + 'thread_id=' + @open_ai_thread.id.to_s,
+    api_base = ENV["AGENT_API"]
+    api_base ||= "http://localhost:8000"
+    response = HTTParty.post("#{api_base}/ai/response?thread_id=#{@open_ai_thread.id.to_s}",
                         body: request.raw_post,
                         headers: { 'Content-Type' => 'application/json' })
     return render json: response.body

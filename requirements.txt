@@ -53,10 +53,8 @@ spacy==3.7.2
 
 # hopefully we can get rid of the torch requirements
 # Used for conversational analysis
-transformers
-tensorflow
-bertopic
-
-
-# for creating executables
-pyinstaller
+# transformers
+# tensorflow
+# bertopic
+# # for creating executables
+# pyinstaller
