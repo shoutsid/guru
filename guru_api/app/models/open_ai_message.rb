@@ -1,5 +1,7 @@
 class OpenAiMessage < ApplicationRecord
     validates_presence_of :content, :role
+    belongs_to :thread, foreign_key: :thread_id, class_name: 'OpenAiThread', inverse_of: :messages
+
     # validates :openai_id, presence: true, uniqueness: true
     # serialize :file_ids, type: Array
     # serialize :metadata, type: Hash

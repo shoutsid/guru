@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2023_11_15_202554) do
+ActiveRecord::Schema[7.1].define(version: 2023_11_16_002631) do
   create_table "agents", force: :cascade do |t|
     t.string "name"
     t.string "openai_id"
@@ -40,6 +40,8 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_15_202554) do
     t.string "run_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "thread_id", null: false
+    t.index ["thread_id"], name: "index_open_ai_messages_on_thread_id"
   end
 
   create_table "open_ai_threads", force: :cascade do |t|

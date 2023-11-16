@@ -50,10 +50,10 @@ if not logger.handlers:
     _ch.setFormatter(logger_formatter)
     logger.addHandler(_ch)
 
-from townhall.db.agent import Agent as AgentModel
-from townhall.db.utils import Session, SQL_ENGINE
+# from townhall.db.agent import Agent as AgentModel
+# from townhall.db.utils import Session, SQL_ENGINE
 
-session = Session(SQL_ENGINE)
+# session = Session(SQL_ENGINE)
 
 class OpenAIWrapper:
     """A wrapper class for openai client."""
@@ -397,12 +397,12 @@ class GPTAssistantAgent(ConversableAgent):
         self._openai_client = oai_wrapper._clients[0]
 
         # retrieve an existing agent
-        db_agent = session.get(AgentModel, db_agent_id)
-        if db_agent is None:
-            raise ValueError(f"Agent with id {db_agent_id} does not exist.")
+        # db_agent = session.get(AgentModel, db_agent_id)
+        # if db_agent is None:
+        #     raise ValueError(f"Agent with id {db_agent_id} does not exist.")
 
-        # openai_assistant_id = llm_config.get("assistant_id", None)
-        openai_assistant_id = db_agent.openai_id if db_agent else None
+        openai_assistant_id = llm_config.get("assistant_id", None)
+        # openai_assistant_id = db_agent.openai_id if db_agent else None
 
         if openai_assistant_id is None:
             # create a new assistant
@@ -418,9 +418,9 @@ class GPTAssistantAgent(ConversableAgent):
                 model=llm_config.get("model", "gpt-4-1106-preview"),
             )
             # update the agent with the assistant id
-            db_agent.openai_id = self._openai_assistant.id
-            session.commit()
-            session.refresh(db_agent)
+            # db_agent.openai_id = self._openai_assistant.id
+            # session.commit()
+            # session.refresh(db_agent)
         else:
             # retrieve an existing assistant
             self._openai_assistant = self._openai_client.beta.assistants.retrieve(openai_assistant_id)

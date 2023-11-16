@@ -4,7 +4,6 @@ models/**
 .venv/
 *.log
 __pycache__/
-*.db
 .benchmarks/
 .pytest_cache/
 build/

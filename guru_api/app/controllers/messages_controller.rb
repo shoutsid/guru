@@ -17,7 +17,7 @@ class MessagesController < ApplicationController
   end
 
   def create
-    @open_ai_message = OpenAiMessage.new(open_ai_message_params)
+    @open_ai_message = @open_ai_thread.messages.new(open_ai_message_params)
 
     respond_to do |format|
       if @open_ai_message.save

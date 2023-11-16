@@ -1,4 +1,6 @@
 class OpenAiThread < ApplicationRecord
+    has_many :messages, foreign_key: :thread_id, class_name: 'OpenAiMessage', dependent: :destroy, inverse_of: :thread
+
     # validates :openai_id, uniqueness: true
     # serialize :metadata, type: Hash
     # {
