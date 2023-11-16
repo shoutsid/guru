@@ -318,7 +318,6 @@ async def reset(ctx):
     USER_AGENT.reset()
     await ctx.send("Reset the agents current conversation.")
 
-
 # =========== EVENTS
 
 @DISCORD_BOT.event
@@ -331,7 +330,29 @@ async def on_update_channel_messages(channel):
 
 @DISCORD_BOT.event
 async def on_message(message):
+    context = await DISCORD_BOT.get_context(message)
+    context.message = message
     DISCORD_BOT.dispatch("message_update", message)
+    if isinstance(message.channel, discord.DMChannel) and message.author != DISCORD_BOT.user:
+        logging.info("Received message %s in private channel", message)
+        timestamp = context.message.created_at.strftime("%Y-%m-%d-%H-%M-%S")
+        await USER_AGENT.a_initiate_chat(TEACHABLE_AGENT, message=f"{timestamp}: {message.content}", clear_history=False)
+        last_message = TEACHABLE_AGENT.last_message(USER_AGENT)
+
+        # if last message is a function call, ignore it
+        if last_message is None:
+            logging.info("No reply from")
+            return
+
+        if len(last_message["content"]) > 1024:
+            logging.info("Found text %s in reply", last_message["content"])
+            for i in range(0, len(last_message["content"]), 1024):
+                msg = last_message["content"][i:i+1024]
+                await message.channel.send(msg)
+                return
+
+        await message.channel.send(last_message["content"])
+
     await DISCORD_BOT.process_commands(message)
 
 @DISCORD_BOT.event
@@ -370,7 +391,7 @@ async def on_message_update(message):
         documents=[message.content],
         metadatas=[{
             "author": message.author.name,
-            "channel": message.channel.name,
+            "channel": str(message.channel),
             "timestamp": timestamp,
         }]
     )
