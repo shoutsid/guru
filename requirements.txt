@@ -36,7 +36,7 @@ openai~=1.2
 # pypdf
 chromadb
 alembic==1.12.1
-qdrant_client[fastembed]==1.6.4
+qdrant_client[fastembed]==1.6.9
 llama_index
 duckduckgo-search==3.9.4
 langchain-experimental==0.0.37
