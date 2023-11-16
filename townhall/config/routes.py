@@ -140,7 +140,7 @@ async def create_response(*, session: Session = Depends(get_session), message: M
 
     logging.debug("Update agents with oai_messages")
     msgs = []
-    messages = session.exec(select(Message).where(Message.id == thread.id))
+    messages = session.exec(select(Message).where(Message.thread_id == thread.id))
     for msg in messages:
         # replace guru with assistant
         oai_message = { 'content': msg.content, 'role': msg.role }
