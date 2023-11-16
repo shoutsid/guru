@@ -1,4 +1,4 @@
-from townhall.config.routes import app
+from guru.config.routes import app
 
 if __name__ == "__main__":
     import uvicorn

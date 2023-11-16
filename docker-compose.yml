@@ -9,7 +9,7 @@ services:
       - .:/app
     command: python3 discord_bot/bot.py
 
-  mobile_api:
+  agent_api:
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
@@ -24,3 +24,21 @@ services:
     build:
       context: ./guru_api
       dockerfile: Dockerfile
+      args:
+        - OPENAI_API_KEY=${OPENAI_API_KEY}
+        - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+        - AGENT_API=http://agent_api:8000
+    depends_on:
+      agent_api:
+        condition: service_healthy
+    links:
+      - agent_api:agent_api
+    env_file:
+      - .env
+    volumes:
+      - guru_api_storage:/app/storage/
+    ports:
+      - 3000:3000
+
+volumes:
+  guru_api_storage:

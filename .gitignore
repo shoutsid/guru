@@ -10,11 +10,10 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
-townhall.egg-info/
 logs/
 
-townhall/models/llama/weights/LLaMa/**
-townhall/models/whisper/weights/**
+guru/models/llama/weights/LLaMa/**
+guru/models/whisper/weights/**
 agent_workplace/**
 
 !pull_llama.sh

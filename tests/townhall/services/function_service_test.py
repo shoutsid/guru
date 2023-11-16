@@ -1,5 +1,5 @@
 import pytest
-from townhall.services.function_service import FunctionService
+from guru.services.function_service import FunctionService
 
 
 @pytest.fixture

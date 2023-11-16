@@ -1,7 +1,7 @@
 import pytest
 
-from townhall.helpers.inter_agent_comm import InterAgentComm
-from townhall.helpers.agent_manager import AgentManager
+from guru.helpers.inter_agent_comm import InterAgentComm
+from guru.helpers.agent_manager import AgentManager
 
 
 @pytest.mark.asyncio

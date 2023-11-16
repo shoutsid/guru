@@ -1,18 +1,17 @@
 .env/
 models/**
 .env
-.venv/
+.venv/**
 *.log
 __pycache__/
 .benchmarks/
 .pytest_cache/
 build/
 dist/
-townhall.egg-info/
 logs/
 
-townhall/models/llama/weights/LLaMa/**
-townhall/models/whisper/weights/**
+guru/models/llama/weights/LLaMa/**
+guru/models/whisper/weights/**
 
 !pull_llama.sh
 !.keep

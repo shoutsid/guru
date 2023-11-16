@@ -1,8 +1,8 @@
 import logging
 from collections import defaultdict
-from townhall.db import Message, Thread
-from townhall.db.utils import Session, SQL_ENGINE, convert_db_messages_to_dict
-from townhall.analyzers.conversation_analyzer import ConversationAnalyzer
+from guru.db import Message, Thread
+from guru.db.utils import Session, SQL_ENGINE, convert_db_messages_to_dict
+from guru.analyzers.conversation_analyzer import ConversationAnalyzer
 from sqlmodel import select
 
 logging.basicConfig(level=logging.INFO)

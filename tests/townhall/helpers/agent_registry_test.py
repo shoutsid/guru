@@ -1,4 +1,4 @@
-from townhall.helpers.agent_registry import AgentRegistry
+from guru.helpers.agent_registry import AgentRegistry
 import pytest
 
 

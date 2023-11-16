@@ -1,5 +1,5 @@
 import pytest
-from townhall.helpers.function_registry import FunctionRegistry
+from guru.helpers.function_registry import FunctionRegistry
 
 
 class TestFunctionRegistry:

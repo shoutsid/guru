@@ -1,5 +1,5 @@
 import pytest
-from townhall.helpers.inter_agent_comm import InterAgentComm
+from guru.helpers.inter_agent_comm import InterAgentComm
 
 
 @pytest.mark.asyncio

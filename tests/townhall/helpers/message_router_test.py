@@ -1,8 +1,8 @@
 import pytest
 
-from townhall.helpers.message_router import MessageRouter
-from townhall.helpers.agent_manager import AgentManager
-from townhall.helpers.inter_agent_comm import InterAgentComm
+from guru.helpers.message_router import MessageRouter
+from guru.helpers.agent_manager import AgentManager
+from guru.helpers.inter_agent_comm import InterAgentComm
 
 @pytest.mark.asyncio
 async def test_message_routing():

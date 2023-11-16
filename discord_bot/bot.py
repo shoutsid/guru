@@ -3,6 +3,12 @@ TODO: Add nice discord responses (pages?)
 TODO: Send back the audio to the channel along with the text, so that the user can hear the response when not in VC.
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
+from guru.db.agent import Agent as AgentModel
+from guru.db.utils import SQL_ENGINE, SQLModel
+from guru.groups.group_chat import GroupChatExpanded
+from guru.managers.group_chat_manager import GroupChatManagerExpanded
+from guru.agents.user_agent import UserAgent
+from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
 import os
 import re
 import discord
@@ -25,12 +31,6 @@ from autogen import Agent
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-# from townhall.agents.teachable_agent import TeachableAgent
-from townhall.agents.enhanced_teachable_agent import EnhancedTeachableAgent
-from townhall.agents.user_agent import UserAgent
-from townhall.managers.group_chat_manager import GroupChatManagerExpanded
-from townhall.groups.group_chat import GroupChatExpanded
-from townhall.db.utils import SQL_ENGINE, SQLModel
 from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE
 from discord_bot.audio_to_text import AudioToText
 from settings import CONFIG_LIST
@@ -39,7 +39,6 @@ from settings import CONFIG_LIST
 load_logger()
 load_dotenv()
 
-from townhall.db.agent import Agent as AgentModel
 from sqlmodel import Session
 SQL_DB_SESSION = Session(SQL_ENGINE)
 SQLModel.metadata.create_all(SQL_ENGINE)

@@ -1,12 +1,12 @@
 {
   "[python]": {
-    "editor.defaultFormatter": "ms-python.python",
+    "editor.defaultFormatter": "ms-python.autopep8",
     "editor.formatOnSave": true,
     "editor.formatOnSaveMode": "modifications",
     "editor.formatOnType": true,
     "editor.formatOnPaste": true,
     "editor.codeActionsOnSave": {
-      "source.organizeImports": false
+      "source.organizeImports": "never"
     }
   },
   "sqltools.connections": [
