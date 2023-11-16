@@ -3,13 +3,15 @@ TODO: Add nice discord responses (pages?)
 TODO: Send back the audio to the channel along with the text, so that the user can hear the response when not in VC.
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
+
+from guru.api.threads_client import list_threads, create_thread
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
 import os
 import re
 import discord
 import time
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 __import__('pysqlite3')
 import sys
@@ -24,65 +26,32 @@ from autogen import Agent
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE
+from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE, extract_file_path
 from guru.db.agent import Agent as AgentModel
 from discord_bot.audio_to_text import AudioToText
 from settings import CONFIG_LIST
-# from learn import learn
 
 load_logger()
-load_dotenv()
 
+# Connection to existing Rails DB.
+# TODO: switch all interactions with API calls to guru_api.
 from sqlmodel import Session, create_engine, SQLModel, select
 sqlite_file_name = "guru_api/storage/development.sqlite3"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 connect_args = {"check_same_thread": False}
 SQL_ENGINE = create_engine(sqlite_url, echo=True, connect_args=connect_args)
-
 SQL_DB_SESSION = Session(SQL_ENGINE)
 SQLModel.metadata.create_all(SQL_ENGINE)
 
-# This is completely a test db and used to save discord in reality
-# Can we create regular db tables in chroma?
-# CONVO_DB_CONNECTION.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, content TEXT, author TEXT, channel TEXT, timestamp TEXT)")
-CONVO_DB_CONNECTION = chromadb.PersistentClient(path="./.tmp/ai_db/conversations.db")
-CONVO_COLLECTION = CONVO_DB_CONNECTION.get_or_create_collection("test_collection")
-# Delete a collection and all associated embeddings, documents, and metadata.
-# ⚠️ This is destructive and not reversible
-# CONVO_DB_CONNECTION.delete_collection(name="test_collection")
-
-
 DISCORD_BOT = commands.Bot(command_prefix='!', intents=INTENTS)
 
-def extract_file_path(text):
-    if text is not str:
-        return None
-    # Define the pattern to extract the path within markdown links
-    pattern = r'\[.*?\]\((sandbox:.*?)\)'
-    # Search the text for the pattern and extract the file path
-    match = re.search(pattern, text)
-    if match:
-        # Return the file path if found without the sandbox: prefix
-        return match.group(1).replace("sandbox:", "")
-    else:
-        # Return None if the pattern is not found
-        return None
-
-from langchain.tools import WikipediaQueryRun
-from langchain.utilities import WikipediaAPIWrapper
-def wikipedia(query):
-    wikipedia_api_wrapper = WikipediaAPIWrapper()
-    wikipedia_query_run = WikipediaQueryRun(wikipedia_api_wrapper=wikipedia_api_wrapper)
-    return wikipedia_query_run.run(query=query)
-
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
+
+TOOL_NAMES = []
+TOOLS = load_tools(TOOL_NAMES)
 FUNCTIONS_MAP = {}
 FUNCTIONS_CONFIG = []
-TOOL_NAMES = [
-    # 'ddg-search', 'requests_all', 'terminal', 'arxiv', 'wikipedia', 'sleep'
-]
-TOOLS = load_tools(TOOL_NAMES)
-
+# 'ddg-search', 'requests_all', 'terminal', 'arxiv', 'wikipedia', 'sleep'
 LLM_CONFIG = {
     "request_timeout": 180,
     "config_list": CONFIG_LIST,
@@ -103,22 +72,11 @@ if db_agent is None:
     SQL_DB_SESSION.commit()
     SQL_DB_SESSION.refresh(db_agent)
 
-TEACH_CONFIG={
-    "verbosity": 3,  # 0 for basic info, 1 to add memory operations, 2 for analyzer messages, 3 for memo lists.
-    "reset_db": False,  # Set to True to start over with an empty database.
-    "path_to_db_dir": "./.cache/ai_db",  # Path to the directory where the database will be stored.
-    "recall_threshold": 1.5,  # Higher numbers allow more (but less relevant) memos to be recalled.
-}
-
 TEACHABLE_AGENT = EnhancedTeachableAgent(
     name="Assistant",
     llm_config=LLM_CONFIG,
-    # teach_config=TEACH_CONFIG,
-    # system_message=DEFAULT_SYSTEM_MESSAGE,
     instructions=DEFAULT_SYSTEM_MESSAGE,
     db_agent_id=db_agent.id,
-    # human_input_mode="NEVER"
-
 )
 USER_AGENT = UserAgent(
     name="User",
@@ -126,20 +84,18 @@ USER_AGENT = UserAgent(
     human_input_mode="NEVER",
 )
 
+THREADS = []
 MESSAGES = []
 AGENTS = []
 AGENTS.append(USER_AGENT)
-# AGENTS.append(COMMAND_EXECUTION_AGENT)
 AGENTS.append(TEACHABLE_AGENT)
-# GROUP_CHAT = GroupChatExpanded(agents=AGENTS, messages=MESSAGES, max_round=50)
-# GROUP_MANAGER = GroupChatManagerExpanded(groupchat=GROUP_CHAT, llm_config=LLM_CONFIG)
 MEMBERS = []
 CHANNELS = []
 CHANNEL_MESSAGES = {}
 OAI_CHANNEL_MESSAGES = {}
 CONNECTIONS = {}
-
-
+# GROUP_CHAT = GroupChatExpanded(agents=AGENTS, messages=MESSAGES, max_round=50)
+# GROUP_MANAGER = GroupChatManagerExpanded(groupchat=GROUP_CHAT, llm_config=LLM_CONFIG)
 global IN_VC
 IN_VC = False
 
@@ -159,9 +115,6 @@ def generate_teachable_agent(name, db_id):
         llm_config=LLM_CONFIG,
         instructions=DEFAULT_SYSTEM_MESSAGE,
         db_agent_id=db_id,
-        # teach_config=TEACH_CONFIG,
-        # system_message=DEFAULT_SYSTEM_MESSAGE,
-        # human_input_mode="NEVER"
     )
     add_agent(agent)
     return agent
@@ -249,10 +202,6 @@ async def leave(ctx):
         IN_VC = False
         logging.info("Left %s channel", ctx.author.voice.channel.name)
 
-# @DISCORD_BOT.command(description="Learn from the conversation")
-# async def learn(ctx):
-#     DISCORD_BOT.dispatch("learn", ctx)
-
 @DISCORD_BOT.command(description="Join and Start Recording")
 async def start(ctx):
     DISCORD_BOT.dispatch("join_channel", ctx)
@@ -318,6 +267,15 @@ async def reset(ctx):
     USER_AGENT.reset()
     await ctx.send("Reset the agents current conversation.")
 
+@DISCORD_BOT.command(description="spit out tests")
+async def test(ctx):
+    # last 5
+    for message in MESSAGES[-5:]:
+        # print(message)
+        msg = f"({message.get('role')}) said: \n {message.get('content')}"
+        await ctx.send(msg)
+    # for thread in THREADS:
+
 # =========== EVENTS
 
 @DISCORD_BOT.event
@@ -332,7 +290,10 @@ async def on_update_channel_messages(channel):
 async def on_message(message):
     context = await DISCORD_BOT.get_context(message)
     context.message = message
+
+    # Add Message from User to CHANNEL_MESSAGES
     DISCORD_BOT.dispatch("message_update", message)
+
     if isinstance(message.channel, discord.DMChannel) and message.author != DISCORD_BOT.user:
         logging.info("Received message %s in private channel", message)
         timestamp = context.message.created_at.strftime("%Y-%m-%d-%H-%M-%S")
@@ -352,58 +313,113 @@ async def on_message(message):
                 return
 
         await message.channel.send(last_message["content"])
+    else:
+        await DISCORD_BOT.process_commands(message)
 
-    await DISCORD_BOT.process_commands(message)
-
+from guru.api.messages_client import create_message, list_messages
 @DISCORD_BOT.event
 async def on_message_update(message):
-    if CHANNEL_MESSAGES.get(message.channel) is None:
-        CHANNEL_MESSAGES[message.channel] = []
-
-    if message in CHANNEL_MESSAGES[message.channel]:
-        logging.debug("Updating message %s in channel %s", message, message.channel)
-        CHANNEL_MESSAGES[message.channel][CHANNEL_MESSAGES[message.channel].index(message)] = message
-    else:
-        logging.debug("Adding message %s to channel %s", message, message.channel)
-        CHANNEL_MESSAGES[message.channel].append(message)
-
     if message.author != DISCORD_BOT.user:
         role = "user"
     else:
         role = "assistant"
-    # capitalize the first letter of the role
-    header_role = role[0].upper() + role[1:]
 
-    # translate the message, to openai compatability
-    header = f"**{header_role}: {message.author.name}**"
-    timestamp = message.created_at.strftime('%Y-%m-%d-%H-%M-%S')
-    content = message.content
-    footer = f"**Timestamp: {timestamp}**"
-    all =  f"{header}\n{content}\n{footer}"
+    thread = None
+    for t in THREADS:
+        if t["discord_channel"] == message.channel.name:
+            thread = t
+            break
+
+    if thread is None:
+        logging.info("No thread found for channel %s", message.channel.name)
+        return None
+
+
+    if message.content == "" or message.content is None:
+        # TODO: This is where we will disect the message type and not just rely on text only media
+        logging.info("No message content found to create")
+        return None
+
     oai_message = {
-        "content": all,
+        "content": message.content,
         "role": role,
     }
 
-    # Add/Update the message to the vector database
-    CONVO_COLLECTION.upsert(
-        ids=[str(message.id)],
-        documents=[message.content],
-        metadatas=[{
-            "author": message.author.name,
-            "channel": str(message.channel),
-            "timestamp": timestamp,
-        }]
-    )
-    # if message is in channel, we need to update it otherwise we add it
-    if OAI_CHANNEL_MESSAGES.get(message.channel) is None:
-        OAI_CHANNEL_MESSAGES[message.channel] = []
-    if oai_message in OAI_CHANNEL_MESSAGES[message.channel]:
-        logging.debug("Updating message %s in channel %s", oai_message, message.channel)
-        OAI_CHANNEL_MESSAGES[message.channel][OAI_CHANNEL_MESSAGES[message.channel].index(oai_message)] = oai_message
+    response = list_messages(thread["id"])
+    try:
+        if response["status"] is not 200:
+            logging.error("Error occurred while listing message.")
+            return None
+    except:
+        pass
+
+    messages = response
+
+    if len(messages) == 0:
+        logging.info("No messages found")
+        logging.info("Creating a message for thread")
+        create_response = create_message(thread["id"], oai_message)
+        logging.info("Created message")
+        MESSAGES.append(create_response)
     else:
-        logging.debug("Adding message %s to channel %s", oai_message, message.channel)
-        OAI_CHANNEL_MESSAGES[message.channel].append(oai_message)
+        logging.info("Found messages")
+        matched_message = None
+        for m in messages:
+            if m["content"] == message.content:
+                logging.info("Found message")
+                MESSAGES.append(m)
+                matched_message = m
+                break
+        if matched_message is None:
+            logging.info("Creating a message for thread")
+            create_response = create_message(thread["id"], oai_message)
+            try:
+                if create_response["status"] is not 200:
+                    logging.error("Error occurred while creating message.")
+                    return None
+            except:
+                pass
+
+            logging.info("Created message")
+            MESSAGES.append(create_response)
+
+
+@DISCORD_BOT.event
+async def on_update_channel(channel):
+    logging.info("Updating channel %s", channel.name)
+    if channel not in CHANNELS:
+        logging.info("Adding channel %s", channel.name)
+        CHANNELS.append(channel)
+    # can i be discord.TextChannel, discord.VoiceChannel
+    if isinstance(channel, discord.TextChannel) or isinstance(channel, discord.VoiceChannel):
+        # Retry mechanism with a wait time of 5 seconds
+        for i in range(3):
+            try:
+                response = list_threads(discord=True, discord_channel=channel.name)
+                # response can be a list
+                if len(response) == 0:
+                    logging.info("No threads found")
+                    logging.info("Creating a thread for channel")
+                    thread_data = {
+                        "discord_channel": channel.name,
+                        "discord": True,
+                    }
+                    response = create_thread(thread_data)
+                    logging.info("Created thread")
+                    THREADS.append(response)
+
+                else:
+                    logging.info("Found threads")
+                    logging.info(response[0]["discord_channel"])
+                    for thread in response:
+                        if thread["discord_channel"] == channel.name:
+                            logging.info("Found thread")
+                            THREADS.append(thread)
+                            break
+                break
+            except Exception as e:
+                logging.error(f"Error occurred while listing threads: {e}")
+                time.sleep(5)
 
 @DISCORD_BOT.event
 async def on_member_join(member):
@@ -425,32 +441,11 @@ async def on_join_channel(ctx):
     await ctx.author.voice.channel.connect()
     logging.info("Joined %s channel", ctx.author.voice.channel.name)
 
-# @DISCORD_BOT.event
-# async def on_learn(ctx):
-#     # TEACHABLE_AGENT.learn_from_user_feedback()
-#     learn()
-#     await ctx.send("Learned from the conversation, this does not mean I remember everything!")
-#     logging.info("Learned from the conversation")
-
 @DISCORD_BOT.event
 async def on_speak(ctx, audio_file_path: str):
     await play_audio_to_voice_channel(ctx, file_path=audio_file_path)
 
-@DISCORD_BOT.event
-async def on_update_channel(channel):
-    logging.info("Updating channel %s", channel)
-    if channel not in CHANNELS:
-        print("Adding channel", channel)
-        CHANNELS.append(channel)
-
-    if isinstance(channel, discord.TextChannel):
-        DISCORD_BOT.dispatch("update_channel_messages", channel)
-
 # ======= COGS & LOOPS =======
-
-@tasks.loop(seconds=10.0)
-async def heartbeat():
-    CONVO_DB_CONNECTION.heartbeat()
 
 @tasks.loop(seconds=5.0, count=1)
 async def start_task():
@@ -465,6 +460,11 @@ async def start_task():
 
     for channel in DISCORD_BOT.get_all_channels():
         DISCORD_BOT.dispatch("update_channel", channel)
+        try:
+            async for message in channel.history():
+                DISCORD_BOT.dispatch("message_update", message)
+        except:
+            pass
 
 # TODO: Check if the bot is in a voice channel
 # Constantly listen for activation words
@@ -500,11 +500,6 @@ async def process_audio(ctx, sink, audio, files, timestamp, user_id):
 async def deal_with_message(ctx, message, embed=discord.Embed(), embed_message=None):
     timestamp = ctx.message.created_at.strftime("%Y-%m-%d-%H-%M-%S")
     message = f"{timestamp}: {message}"
-
-    # TODO: Add env variable to reset the agents
-    # reset the agents convos etc
-    # TEACHABLE_AGENT.reset()
-    # USER_AGENT.reset()
 
     await USER_AGENT.a_initiate_chat(TEACHABLE_AGENT, message=message, clear_history=False)
     last_message = TEACHABLE_AGENT.last_message(USER_AGENT)
@@ -606,4 +601,5 @@ async def finished_callback(sink, ctx):
         await process_audio(ctx, sink, audio, files, timestamp, user_id)
     logging.info("Finished recording in %s channel", ctx.author.voice.channel.name)
 
+start_task.start()
 DISCORD_BOT.run(BOT_TOKEN)

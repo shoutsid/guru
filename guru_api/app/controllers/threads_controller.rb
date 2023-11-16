@@ -3,6 +3,16 @@ class ThreadsController < ApplicationController
 
   def index
     @open_ai_threads = OpenAiThread.all
+    permitted = params.permit(:discord, :discord_channel)
+    if permitted[:discord]
+      Rails.logger.info "Discord: #{permitted[:discord]}"
+      @open_ai_threads = @open_ai_threads.where(discord: permitted[:discord])
+    end
+    if permitted[:discord_channel]
+      Rails.logger.info "Discord Channel: #{permitted[:discord_channel]}"
+      @open_ai_threads = @open_ai_threads.where(discord_channel: permitted[:discord_channel])
+    end
+    @open_ai_threads = @open_ai_threads.order(created_at: :desc)
   end
 
   def show
@@ -50,6 +60,6 @@ class ThreadsController < ApplicationController
   end
 
   def open_ai_thread_params
-    params.fetch(:thread, {}).permit(:openai_id, :object, :openai_created_at, :meta_data)
+    params.fetch(:thread, {}).permit(:openai_id, :object, :discord, :discord_channel, :openai_created_at, :meta_data)
   end
 end

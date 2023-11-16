@@ -120,18 +120,6 @@ async def create_response(*, session: Session = Depends(get_session), message: M
     user_agent = generate_user_agent(name=user_agent_name)
     guru_agent = generate_teachable_agent(name=guru_agent_name, db_id=db_guru_agent.id)
 
-    # if user_id:
-    #     # we have everything, do the things
-    #     user = session.exec(select(User).where(User.id == user_id))
-    #     user = user.one_or_none()
-
-    # if user is None:
-    #     logging.debug("No user found, creating new one")
-    #     user = User(id=user_id, username='sid', discriminator='0', avatar="http://www.gravatar.com/avatar") # attempt to save with the user_id passed.
-    #     session.add(user)
-    #     session.commit()
-    #     session.refresh(user)
-
     thread = session.get(Thread, thread_id)
     logging.debug("123123Thread found: " + str(thread))
     if thread is None or thread.id is None:
@@ -157,24 +145,20 @@ async def create_response(*, session: Session = Depends(get_session), message: M
 
     logging.debug("Thread found, adding message")
     message.thread_id = thread.id
-    # message.user_id = user.id
     session.add(message)
     session.commit()
     session.refresh(message)
     logging.debug("Message added, starting chat")
 
     logging.debug("Agents found, starting chat")
-    # guru_agent._invoke_assistant(messages=msgs, sender=user_agent)
     await user_agent.a_initiate_chat(guru_agent, message=message.content, clear_history=False)
     logging.debug("Guru response received")
     last_message = guru_agent.last_message(user_agent).copy()
-    # last_message['user_id'] = user.id
     last_message['thread_id'] = thread.id
 
     logging.debug("Reply Found, adding message")
     reply_message = Message(**last_message)
     reply_message.thread_id = thread.id
-    # reply_message.user_id = user.id
     session.add(reply_message)
     session.commit()
     session.refresh(reply_message)

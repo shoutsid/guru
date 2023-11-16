@@ -1,21 +1,31 @@
 version: '2.23'
 
 services:
-  discord:
+  # Client for the Guru API
+  discord_bot:
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
+    depends_on:
+      - guru_api
+    links:
+      - guru_api:guru_api
     env_file:
-      - .env
+      - .env_discord_bot
     volumes:
       - .:/app
     command: python3 run_discord_bot.py
 
+  # Chat Completion by python OpenAI Agents
   agent_api:
     container_name: agent_api
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
+    depends_on:
+      - guru_api
+    links:
+      - guru_api:guru_api
     env_file:
       - .env
     volumes:
@@ -24,7 +34,8 @@ services:
     ports:
       - 8000:8000
 
-  # Production Use only
+  # This runs as it's in Production. Modify with caution.
+  # primary api backend
   guru_api:
     container_name: guru_api
     build:
@@ -34,13 +45,10 @@ services:
         - OPENAI_API_KEY=${OPENAI_API_KEY}
         - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
         - AGENT_API=http://agent_api:8000
-    depends_on:
-      - agent_api
-    links:
-      - agent_api:agent_api
     env_file:
       - .env
     volumes:
+      - ./guru_api:/rails
       - guru_api_storage:/rails/storage/
     ports:
       - 3000:3000

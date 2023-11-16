@@ -3,7 +3,7 @@ class MessagesController < ApplicationController
   before_action :set_open_ai_message, only: %i[ show edit update destroy ]
 
   def index
-    @open_ai_messages = OpenAiMessage.where(open_ai_thread_id: params[:thread_id])
+    @open_ai_messages = OpenAiMessage.where(thread_id: params[:thread_id])
   end
 
   def show
@@ -23,6 +23,7 @@ class MessagesController < ApplicationController
       if @open_ai_message.save
         format.json { render :show, status: :created, location: thread_message_url(@open_ai_message, thread_id: @open_ai_thread.id) }
       else
+        Rails.logger.info(@open_ai_message.errors.inspect)
         format.json { render json: @open_ai_message.errors, status: :unprocessable_entity }
       end
     end
@@ -33,6 +34,7 @@ class MessagesController < ApplicationController
       if @open_ai_message.update(open_ai_message_params)
         format.json { render :show, status: :ok, location: thread_message_url(@open_ai_message, thread_id: @open_ai_thread.id) }
       else
+        Rails.logger.info(@open_ai_message.errors.inspect)
         format.json { render json: @open_ai_message.errors, status: :unprocessable_entity }
       end
     end
@@ -52,7 +54,7 @@ class MessagesController < ApplicationController
   end
 
   def set_open_ai_message
-    @open_ai_message = OpenAiMessage.find_by(id: params[:id], open_ai_thread_id: params[:thread_id])
+    @open_ai_message = OpenAiMessage.find_by(id: params[:id], thread_id: params[:thread_id])
   end
 
   def open_ai_message_params

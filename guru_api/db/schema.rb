@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2023_11_16_002631) do
+ActiveRecord::Schema[7.1].define(version: 2023_11_16_162315) do
   create_table "agents", force: :cascade do |t|
     t.string "name"
     t.string "openai_id"
@@ -24,6 +24,15 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_16_002631) do
     t.text "metadata", default: ""
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "emotion", force: :cascade do |t|
+    t.string "emotion", null: false
+  end
+
+  create_table "entity", force: :cascade do |t|
+    t.string "text", null: false
+    t.string "label", null: false
   end
 
   create_table "open_ai_messages", force: :cascade do |t|
@@ -52,6 +61,16 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_16_002631) do
     t.text "meta_data"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "discord", default: false
+    t.string "discord_channel"
+  end
+
+  create_table "opinion", force: :cascade do |t|
+    t.float "sentiment_score", null: false
+  end
+
+  create_table "topic", force: :cascade do |t|
+    t.string "keywords", null: false
   end
 
   create_table "users", force: :cascade do |t|

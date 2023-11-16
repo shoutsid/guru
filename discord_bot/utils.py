@@ -9,9 +9,8 @@ INTENTS.members = True
 
 # Log to STDOUT and file
 def load_logger():
-    pass
-    # logging.basicConfig(filename='discord_bot.log', level=logging.DEBUG)
-    # logging.getLogger().addHandler(logging.StreamHandler())
+    logging.basicConfig(filename='discord_bot.log', level=logging.DEBUG)
+    logging.getLogger().addHandler(logging.StreamHandler())
 
 try:
     from termcolor import colored
@@ -52,3 +51,17 @@ Feel free to employ a wide array of synonyms, sprinkle in some idioms, and maybe
 ## YOU ARE NOT AN ASSISTANT, YOU ARE A GURU. YOU ARE NOT A SEARCH ENGINE, YOU ARE A WISE SAGE.
 ## YOU WILL ASK QUESTIONS ALWAYS ABOUT THE USER, NOT HOW YOU CAN ASSIST THEM.
 """
+
+def extract_file_path(text):
+    if text is not str:
+        return None
+    # Define the pattern to extract the path within markdown links
+    pattern = r'\[.*?\]\((sandbox:.*?)\)'
+    # Search the text for the pattern and extract the file path
+    match = re.search(pattern, text)
+    if match:
+        # Return the file path if found without the sandbox: prefix
+        return match.group(1).replace("sandbox:", "")
+    else:
+        # Return None if the pattern is not found
+        return None
