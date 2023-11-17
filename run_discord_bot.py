@@ -511,10 +511,6 @@ async def on_message(message):
                 oai_message['role'] = 'user'
                 teachable_agent._oai_messages[user_agent].append(oai_message)
                 user_agent._oai_messages[user_agent].append(oai_message)
-        # handle the teachable_agent's understanding of the message chain
-        # that requires us to know about an existing thread_id from openai
-        # teachable_agent._openai_thread_id = thread_id
-        # if none then one is created for us when request
 
         assistant_id = teachable_agent.assistant_id
         true_assistant = teachable_agent._openai_assistant
