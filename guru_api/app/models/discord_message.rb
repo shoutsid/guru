@@ -1,0 +1,2 @@
+class DiscordMessage < ApplicationRecord
+end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2023_11_17_132629) do
+ActiveRecord::Schema[7.1].define(version: 2023_11_17_151932) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -48,6 +48,30 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_17_132629) do
     t.integer "member_count"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "discord_messages", force: :cascade do |t|
+    t.bigint "discord_id"
+    t.text "content"
+    t.bigint "author_id"
+    t.bigint "channel_id"
+    t.bigint "guild_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["discord_id"], name: "index_discord_messages_on_discord_id"
+  end
+
+  create_table "discord_threads", force: :cascade do |t|
+    t.bigint "discord_id"
+    t.string "name"
+    t.string "type"
+    t.bigint "owner_id"
+    t.bigint "parent_id"
+    t.boolean "archived"
+    t.integer "auto_archive_duration"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["discord_id"], name: "index_discord_threads_on_discord_id"
   end
 
   create_table "open_ai_messages", force: :cascade do |t|

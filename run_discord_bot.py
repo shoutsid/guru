@@ -4,11 +4,16 @@ TODO: Send back the audio to the channel along with the text, so that the user c
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
 
-# from guru.api.threads_client import list_threads, create_thread
+from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE, extract_file_path
+from guru.api.discord_guild_client import get_guild, create_guild, update_guild
+from guru.api.discord_channel_client import get_channel, create_channel, update_channel
+from guru.api.discord_thread_client import get_thread, create_thread, update_thread
+from guru.api.discord_message_client import get_message, create_message, update_message
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
+from guru.db.agent import Agent as AgentModel
+
 import os
-import asyncio
 import discord
 import time
 # from dotenv import load_dotenv
@@ -22,11 +27,6 @@ from langchain.agents import load_tools
 from langchain.tools import Tool, ElevenLabsText2SpeechTool
 from autogen import Agent
 
-from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE, extract_file_path
-from guru.db.agent import Agent as AgentModel
 from discord_bot.audio_to_text import AudioToText
 from settings import CONFIG_LIST
 
@@ -89,8 +89,6 @@ AGENTS = []
 AGENTS.append(USER_AGENT)
 AGENTS.append(TEACHABLE_AGENT)
 MEMBERS = []
-CHANNEL_MESSAGES = {}
-OAI_CHANNEL_MESSAGES = {}
 CONNECTIONS = {}
 # GROUP_CHAT = GroupChatExpanded(agents=AGENTS, messages=MESSAGES, max_round=50)
 # GROUP_MANAGER = GroupChatManagerExpanded(groupchat=GROUP_CHAT, llm_config=LLM_CONFIG)
@@ -254,10 +252,6 @@ async def print_channels_to_console(ctx):
     for channel in ctx.guild.channels:
         print(channel)
 
-@DISCORD_BOT.command(description="Send all the channel messages of the server")
-async def print_channel_messages_to_console(ctx):
-    for channel in CHANNEL_MESSAGES:
-        print(channel, CHANNEL_MESSAGES[channel])
 
 @DISCORD_BOT.command(description="Reset the agents current conversation")
 async def reset(ctx):
@@ -274,9 +268,6 @@ async def on_update_channel_messages(channel):
             DISCORD_BOT.dispatch("message_update", message)
     except:
         logging.debug("No permissions to channel %s", channel)
-
-
-from guru.api.discord_guild_client import get_guild, create_guild, update_guild
 
 GUILDS = []
 
@@ -325,8 +316,6 @@ async def on_guild_available(guild):
     for thread in guild.threads:
         DISCORD_BOT.dispatch("handle_thread", thread)
 
-from guru.api.discord_channel_client import get_channel, create_channel, update_channel
-
 CHANNELS = []
 
 @DISCORD_BOT.event
@@ -350,7 +339,6 @@ async def on_channel_available(channel):
         logging.info("No channel found, creating a channel")
         response = create_channel(channel_data)
         logging.info("Created channel: %s", response)
-        # Assuming CHANNELS is a list where you store your channels
         CHANNELS.append(response)
     else:
         logging.info("Found channel, updating it")
@@ -358,8 +346,9 @@ async def on_channel_available(channel):
         logging.info("Updated channel: %s", response)
         CHANNELS.append(response)
 
-
-from guru.api.discord_thread_client import get_thread, create_thread, update_thread
+    # find or create messages
+    async for message in channel.history():
+        DISCORD_BOT.dispatch("handle_message", message)
 
 THREADS = []
 
@@ -393,135 +382,58 @@ async def on_handle_thread(thread):
         logging.info("Updated thread: %s", response)
         THREADS.append(response)
 
+    # find or create messages
+    async for message in thread.history():
+        DISCORD_BOT.dispatch("handle_message", message)
+
+MESSAGES = {}
 
 
-# @DISCORD_BOT.event
-# async def on_message(message):
-#     context = await DISCORD_BOT.get_context(message)
-#     context.message = message
-#     if isinstance(message.channel, discord.DMChannel):
-#         channel_name = message.author.name
-#     else:
-#         channel_name = message.channel.name
-
-#     # get or create channel based on channel name
-#     threads = list_threads(discord=True, discord_channel=channel_name)
-
-#     # TODO: replace match with id
-#     matching_thread = None
-#     for thread in threads:
-#         if thread["discord_channel"] == channel_name:
-#             matching_thread = thread
-#             break
-
-#     if matching_thread is None:
-#         logging.info("No threads found")
-#         logging.info("Creating a thread for channel")
-#         thread_data = {
-#             "discord_channel": channel_name,
-#             "discord": True,
-#         }
-#         matching_thread = create_thread(thread_data)
-#         logging.info("Created thread")
-#         THREADS.append(matching_thread)
-
-#     # Add Message from User to CHANNEL_MESSAGES
-#     DISCORD_BOT.dispatch("message_update", message)
-
-#     if isinstance(message.channel, discord.DMChannel) and message.author != DISCORD_BOT.user:
-#         # TODO: Replace with Agent API Call
-#         logging.info("Received message %s in private channel", message)
-#         timestamp = context.message.created_at.strftime("%Y-%m-%d-%H-%M-%S")
-#         await USER_AGENT.a_initiate_chat(TEACHABLE_AGENT, message=f"{timestamp}: {message.content}", clear_history=False)
-#         last_message = TEACHABLE_AGENT.last_message(USER_AGENT)
-
-#         # if last message is a function call, ignore it
-#         if last_message is None:
-#             logging.info("No reply from")
-#             return
-
-#         # TODO: should create response OpenAiMessage on Guru API here
-
-#         if len(last_message["content"]) > 1024:
-#             logging.info("Found text %s in reply", last_message["content"])
-#             for i in range(0, len(last_message["content"]), 1024):
-#                 msg = last_message["content"][i:i+1024]
-#                 await message.channel.send(msg)
-#                 return
-
-#         await message.channel.send(last_message["content"])
-#     else:
-#         await DISCORD_BOT.process_commands(message)
-
-# from guru.api.messages_client import create_message, list_messages
-# @DISCORD_BOT.event
-# async def on_message_update(message):
-#     if message.author != DISCORD_BOT.user:
-#         role = "user"
-#     else:
-#         role = "assistant"
-
-#     if isinstance(message.channel, discord.DMChannel):
-#         channel_name = message.author.name
-#     else:
-#         channel_name = message.channel.name
-
-#     thread = None
-#     for t in THREADS:
-#         if t["discord_channel"] == channel_name:
-#             thread = t
-#             break
-
-#     if thread is None:
-#         logging.info("No thread found for channel %s", channel_name)
-#         return None
+@DISCORD_BOT.event
+async def on_message_edit(before, after):
+    DISCORD_BOT.dispatch("handle_message", after)
 
 
-#     oai_message = {
-#         "content": message.content,
-#         "role": role,
-#         "discord_id": message.id,
-#     }
+@DISCORD_BOT.event
+async def on_handle_message(message):
+    logging.info("Processing message: %s", message)
+    message_data = {
+        "discord_id": message.id,
+        "content": message.content,
+        "author_id": message.author.id,
+        "channel_id": message.channel.id,
+        "guild_id": message.guild.id,
+    }
+    response = get_message(message.id)
 
-#     response = list_messages(thread["id"])
-#     try:
-#         if response["status"] is not 200:
-#             logging.error("Error occurred while listing message.")
-#             return None
-#     except:
-#         pass
+    if response is None:
+        logging.info("No message found, creating a message")
+        response = create_message(message_data)
+        logging.info("Created message: %s", response)
+        MESSAGES[message.channel.id] = response
+    else:
+        logging.info("Found message, updating it")
+        response = update_message(message.id, message_data)
+        logging.info("Updated message: %s", response)
+        MESSAGES[message.channel.id] = response
 
-#     messages = response
 
-#     if len(messages) == 0:
-#         logging.info("No messages found")
-#         logging.info("Creating a message for thread")
-#         create_response = create_message(thread["id"], oai_message)
-#         logging.info("Created message")
-#         MESSAGES.append(create_response)
-#     else:
-#         logging.info("Found messages")
-#         matched_message = None
-#         for m in messages:
-#             # Match is bad
-#             if str(m["discord_id"]) == str(message.id):
-#                 logging.info("Found message")
-#                 MESSAGES.append(m)
-#                 matched_message = m
-#                 break
+@DISCORD_BOT.event
+async def on_message(message):
+    if message.author == DISCORD_BOT.user:
+        return
 
-#         if matched_message is None:
-#             logging.info("Creating a message for thread")
-#             create_response = create_message(thread["id"], oai_message)
-#             try:
-#                 if create_response["status"] is not 200:
-#                     logging.error("Error occurred while creating message.")
-#                     return None
-#             except:
-#                 pass
+    if message.content.startswith("!"):
+        return
 
-#             logging.info("Created message")
-#             MESSAGES.append(create_response)
+    DISCORD_BOT.dispatch("handle_message", message)
+    # TODO: Send to agent and get reply
+    # If private message, get context, create a user agent
+    # user_agent = UserAgent(
+    # timestamp = message.created_at.strftime("%Y-%m-%d-%H-%M-%S")
+    # await USER_AGENT.a_initiate_chat(TEACHABLE_AGENT, message=f"{timestamp}: {message.content}", clear_history=False)
+    # last_message = TEACHABLE_AGENT.last_message(USER_AGENT)
+
 
 @DISCORD_BOT.event
 async def on_member_join(member):

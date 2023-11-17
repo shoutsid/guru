@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  resources :discord_messages
   resources :discord_threads
   resources :discord_channels
   resources :discord_guilds
