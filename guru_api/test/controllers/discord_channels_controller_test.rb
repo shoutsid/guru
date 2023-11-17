@@ -1,6 +1,6 @@
 require "test_helper"
 
-class Api::DiscordChannelsControllerTest < ActionDispatch::IntegrationTest
+class DiscordChannelsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @api_discord_channel = api_discord_channels(:one)
   end
@@ -11,7 +11,7 @@ class Api::DiscordChannelsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should create api_discord_channel" do
-    assert_difference("Api::DiscordChannel.count") do
+    assert_difference("DiscordChannel.count") do
       post api_discord_channels_url, params: { api_discord_channel: { discord_id: @api_discord_channel.discord_id, guild_id: @api_discord_channel.guild_id, name: @api_discord_channel.name, position: @api_discord_channel.position, topic: @api_discord_channel.topic, type: @api_discord_channel.type } }, as: :json
     end
 
@@ -29,7 +29,7 @@ class Api::DiscordChannelsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should destroy api_discord_channel" do
-    assert_difference("Api::DiscordChannel.count", -1) do
+    assert_difference("DiscordChannel.count", -1) do
       delete api_discord_channel_url(@api_discord_channel), as: :json
     end
 

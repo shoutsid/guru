@@ -277,6 +277,7 @@ async def on_update_channel_messages(channel):
         logging.debug("No permissions to channel %s", channel)
 
 GUILDS = []
+
 from guru.api.discord_guild_client import get_guild, create_guild, update_guild
 
 @DISCORD_BOT.event
@@ -311,6 +312,41 @@ async def on_guild_available(guild):
         response = update_guild(guild.id, guild_data)
         logging.info("Updated guild")
         GUILDS.append(response)
+
+    # find or create channels
+    for channel in guild.text_channels:
+        DISCORD_BOT.dispatch("channel_available", channel)
+
+from guru.api.discord_channel_client import get_channel, create_channel, update_channel
+
+@DISCORD_BOT.event
+async def on_channel_available(channel):
+    logging.info("Channel available: %s", channel)
+    channel_data = {
+        "discord_id": channel.id,
+        "name": channel.name,
+        "type": str(channel.type),
+        "guild_id": channel.guild.id,
+        "position": channel.position,
+        "topic": channel.topic,
+    }
+    response = get_channel(channel.id)
+
+    if response is None:
+        logging.info("No channel found, creating a channel")
+        response = create_channel(channel_data)
+        logging.info("Created channel: %s", response)
+        # Assuming CHANNELS is a list where you store your channels
+        CHANNELS.append(response)
+    else:
+        logging.info("Found channel, updating it")
+        response = update_channel(channel.id, channel_data)
+        logging.info("Updated channel: %s", response)
+        CHANNELS.append(response)
+
+@DISCORD_BOT.event
+async def on_update_channel(channel):
+    DISCORD_BOT.dispatch("channel_available", channel)
 
 @DISCORD_BOT.event
 async def on_message(message):
@@ -441,48 +477,6 @@ async def on_message_update(message):
             MESSAGES.append(create_response)
 
 @DISCORD_BOT.event
-async def on_update_channel(channel):
-    channel_name = channel.name
-    logging.info(f"Updating channel {channel_name}")
-
-    if channel not in CHANNELS:
-        logging.info(f"Adding channel {channel_name}")
-        CHANNELS.append(channel)
-
-    if isinstance(channel, (discord.TextChannel, discord.VoiceChannel)):
-        for i in range(3):
-            try:
-                response = list_threads(discord=True, discord_channel=channel_name)
-
-                if not response:
-                    logging.info("No threads found")
-                    logging.info("Creating a thread for channel")
-                    thread_data = {
-                        "discord_channel": channel_name,
-                        "discord": True,
-                    }
-                    response = create_thread(thread_data)
-                    logging.info("Created thread")
-                    THREADS.append(response[0])
-
-                else:
-                    logging.info("Found threads")
-                    for thread in response:
-                        if thread["discord_channel"] == channel_name:
-                            logging.info("Found thread")
-                            THREADS.append(thread)
-                            break
-                break
-            except Exception as e:
-                logging.error(f"Error occurred while listing threads: {e}")
-                await asyncio.sleep(5)
-    try:
-        async for message in channel.history():
-            DISCORD_BOT.dispatch("message_update", message)
-    except:
-        pass
-
-@DISCORD_BOT.event
 async def on_member_join(member):
     logging.info("Member %s joined", member)
     MEMBERS.append(member)
@@ -513,14 +507,15 @@ async def start_task():
     global MEMBERS
     await DISCORD_BOT.wait_until_ready()
     print("Primary Loop, %s members" % len(MEMBERS))
+
     # Check and update members list
     for member in DISCORD_BOT.get_all_members():
         if member not in MEMBERS:
             print("Adding member", member)
             MEMBERS.append(member)
 
-    for channel in DISCORD_BOT.get_all_channels():
-        DISCORD_BOT.dispatch("update_channel", channel)
+    # for channel in DISCORD_BOT.get_all_channels():
+    #     DISCORD_BOT.dispatch("update_channel", channel)
 
 # TODO: Check if the bot is in a voice channel
 # Constantly listen for activation words
