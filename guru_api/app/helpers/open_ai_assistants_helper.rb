@@ -1,0 +1,2 @@
+module OpenAiAssistantsHelper
+end

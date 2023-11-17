@@ -7,9 +7,11 @@ TODO: Record stream to text stream, to a_initiate_chat stream, get response and 
 from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE, extract_file_path
 from guru.api.discord_guild_client import get_guild, create_guild, update_guild
 from guru.api.discord_channel_client import get_channel, create_channel, update_channel
-from guru.api.discord_thread_client import get_thread, create_thread, update_thread
+from guru.api.discord_thread_client import get_thread as get_discord_thread, create_thread as create_discord_thread, update_thread as update_discord_thread
 from guru.api.discord_message_client import get_message, create_message, update_message
 from guru.api.discord_user_client import get_user, create_user, update_user
+from guru.api.open_ai_assistant_client import get_assistant, create_assistant, update_assistant, list_assistants
+from guru.api.open_ai_thread_client import get_thread as get_open_ai_thread, create_thread as create_open_ai_thread, update_thread as update_open_ai_thread, list_threads as list_open_ai_thread
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
 from guru.db.agent import Agent as AgentModel
@@ -33,16 +35,6 @@ from settings import CONFIG_LIST
 
 load_logger()
 
-# Connection to existing Rails DB.
-# TODO: switch all interactions with API calls to guru_api.
-from sqlmodel import Session, create_engine, SQLModel, select
-sqlite_file_name = "guru_api/storage/development.sqlite3"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
-connect_args = {"check_same_thread": False}
-SQL_ENGINE = create_engine(sqlite_url, echo=True, connect_args=connect_args)
-SQL_DB_SESSION = Session(SQL_ENGINE)
-SQLModel.metadata.create_all(SQL_ENGINE)
-
 DISCORD_BOT = commands.Bot(command_prefix='!', intents=INTENTS)
 
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -62,33 +54,6 @@ LLM_CONFIG = {
 if TOOL_NAMES.__len__() > 0:
     LLM_CONFIG["functions"] = FUNCTIONS_CONFIG
 
-# find or  a new agent row based on the discord username
-# from sqlmodel import select
-db_agent = SQL_DB_SESSION.exec(select(AgentModel).where(AgentModel.name == "DISCORD_BOT"))
-db_agent = db_agent.one_or_none()
-if db_agent is None:
-    db_agent = AgentModel(name="DISCORD_BOT", system_message=DEFAULT_SYSTEM_MESSAGE)
-    SQL_DB_SESSION.add(db_agent)
-    SQL_DB_SESSION.commit()
-    SQL_DB_SESSION.refresh(db_agent)
-
-TEACHABLE_AGENT = EnhancedTeachableAgent(
-    name="Assistant",
-    llm_config=LLM_CONFIG,
-    instructions=DEFAULT_SYSTEM_MESSAGE,
-    db_agent_id=db_agent.id,
-)
-USER_AGENT = UserAgent(
-    name="User",
-    max_consecutive_auto_reply=0,
-    human_input_mode="NEVER",
-)
-
-THREADS = []
-MESSAGES = []
-AGENTS = []
-AGENTS.append(USER_AGENT)
-AGENTS.append(TEACHABLE_AGENT)
 MEMBERS = []
 CONNECTIONS = {}
 # GROUP_CHAT = GroupChatExpanded(agents=AGENTS, messages=MESSAGES, max_round=50)
@@ -96,35 +61,24 @@ CONNECTIONS = {}
 global IN_VC
 IN_VC = False
 
-# START: =========== API Related Functions
+# START: =========== AI Related Functions
 def generate_user_agent(name):
     agent = UserAgent(
         name=name,
         max_consecutive_auto_reply=0,
         human_input_mode="NEVER",
     )
-    add_agent(agent)
     return agent
 
-def generate_teachable_agent(name, db_id):
+
+def generate_teachable_agent(name):
     agent = EnhancedTeachableAgent(
         name=name,
         llm_config=LLM_CONFIG,
         instructions=DEFAULT_SYSTEM_MESSAGE,
-        db_agent_id=db_id,
     )
-    add_agent(agent)
     return agent
-# END: =========== API Related Functions
-
-def find_agent(discord_username: str):
-    for agent in AGENTS:
-        if agent.name == discord_username:
-            return agent
-    return None
-
-def add_agent(agent: Agent):
-    AGENTS.append(agent)
+# END: =========== AI Related Functions
 
 def generate_llm_config(tool):
     """
@@ -378,16 +332,16 @@ async def on_handle_thread(thread):
         "auto_archive_duration": thread.auto_archive_duration,
     }
 
-    response = get_thread(thread.id)
+    response = get_discord_thread(thread.id)
 
     if response is None:
         logging.info("No thread found, creating a thread")
-        response = create_thread(thread_data)
+        response = create_discord_thread(thread_data)
         logging.info("Created thread: %s", response)
         THREADS.append(response)
     else:
         logging.info("Found thread, updating it")
-        response = update_thread(thread.id, thread_data)
+        response = update_discord_thread(thread.id, thread_data)
         logging.info("Updated thread: %s", response)
         THREADS.append(response)
 
@@ -408,12 +362,18 @@ async def on_message_edit(before, after):
 @DISCORD_BOT.event
 async def on_handle_message(message):
     logging.info("Processing message: %s", message)
+    guild_id = None
+    if hasattr(message.guild, 'id'):
+        guild_id = message.guild.id
+    else:
+        logging.info("No guild found for message %s", message)
+
     message_data = {
         "discord_id": message.id,
         "content": message.content,
         "author_id": message.author.id,
         "channel_id": message.channel.id,
-        "guild_id": message.guild.id,
+        "guild_id": guild_id,
     }
     response = get_message(message.id)
 
@@ -427,6 +387,31 @@ async def on_handle_message(message):
         response = update_message(message.id, message_data)
         logging.info("Updated message: %s", response)
         MESSAGES[message.channel.id] = response
+
+OPEN_AI_ASSISTANTS = []
+
+
+OPEN_AI_THREADS = []
+
+
+@DISCORD_BOT.event
+async def on_handle_openai_thread(thread_data):
+    logging.info("Processing OpenAI Thread: %s",
+                 thread_data.get("external_id"))
+    thread_id = thread_data.get("external_id")
+
+    response = get_open_ai_thread(thread_id)
+
+    if response is None:
+        logging.info("No thread found, creating a new one")
+        response = create_open_ai_thread(thread_data)
+        logging.info("Created OpenAI Thread: %s", response)
+        OPEN_AI_THREADS.append(response)
+    else:
+        logging.info("Found thread, updating it")
+        response = update_open_ai_thread(thread_id, thread_data)
+        logging.info("Updated OpenAI Thread: %s", response)
+        OPEN_AI_THREADS.append(response)
 
 
 @DISCORD_BOT.event
@@ -443,12 +428,109 @@ async def on_message(message):
         await DISCORD_BOT.process_commands(message)
         return
 
-    # TODO: Send to agent and get reply
-    # If private message, get context, create a user agent
-    # user_agent = UserAgent(
-    # timestamp = message.created_at.strftime("%Y-%m-%d-%H-%M-%S")
-    # await USER_AGENT.a_initiate_chat(TEACHABLE_AGENT, message=f"{timestamp}: {message.content}", clear_history=False)
-    # last_message = TEACHABLE_AGENT.last_message(USER_AGENT)
+    if isinstance(message.channel, discord.DMChannel):
+        logging.info("Received a DM from %s", message.author)
+        logging.info("Creating agent for %s", message.author)
+        user_agent_name = f"discord_member_{message.author.id}"
+        teachable_agent_name = f"discord_assistant_{message.author.id}"
+        user_agent = generate_user_agent(user_agent_name)
+        current_message = DEFAULT_SYSTEM_MESSAGE
+
+        logging.info("Created user agent %s", user_agent)
+        config = LLM_CONFIG.copy()
+
+        # Lookup by name
+        assistants = list_assistants()
+        if assistants is None:
+            assistants = []
+
+        for assistant in assistants:
+            if assistant["name"] == teachable_agent_name:
+                config["assistant_id"] = assistant["external_id"]
+                break
+
+        teachable_agent = EnhancedTeachableAgent(
+            name=f"user_assistant_{message.author.id}",
+            llm_config=config,
+            instructions=current_message
+        )
+        thread = teachable_agent._openai_client.beta.threads.create(
+            messages=[],
+        )
+        teachable_agent._openai_threads[user_agent] = thread
+        data = {
+            "external_id": thread.id,
+            "metadata": thread.metadata,
+        }
+        DISCORD_BOT.dispatch("handle_openai_thread", data)
+
+        # for now, we don't have open_ai_message objects on the guru pi
+        # find all messages based on message channel.
+        messages = await message.channel.history().flatten()
+
+        for msg in messages:
+            # replace guru with assistant
+            role = 'user'
+            if msg.author == DISCORD_BOT.user:
+                role = 'assistant'
+
+            print("changing role: ", role)
+            oai_message = {'content': msg.content, 'role': role}
+
+            # Deal with Base Agent's understanding of the message chain
+            if role == 'assistant':
+                teachable_agent._oai_messages[teachable_agent].append(
+                    oai_message)
+                user_agent._oai_messages[teachable_agent].append(oai_message)
+            else:
+                oai_message['role'] = 'user'
+                teachable_agent._oai_messages[user_agent].append(oai_message)
+                user_agent._oai_messages[user_agent].append(oai_message)
+        # handle the teachable_agent's understanding of the message chain
+        # that requires us to know about an existing thread_id from openai
+        # teachable_agent._openai_thread_id = thread_id
+        # if none then one is created for us when request
+
+        assistant_id = teachable_agent.assistant_id
+        true_assistant = teachable_agent._openai_assistant
+        assistant_data = {
+            "external_id": assistant_id,
+            "name": true_assistant.name,
+            "description": true_assistant.description,
+            "model": true_assistant.model,
+            "instructions": true_assistant.instructions,
+            "tools": [{"type": "code_interpreter"}, {"type": "retrieval"}],
+            "file_ids": true_assistant.file_ids,
+            "metadata": true_assistant.metadata,
+        }
+
+        response = get_assistant(assistant_id)
+
+        if response is None:
+            logging.info("No assistant found, creating a new one")
+            response = create_assistant(assistant_data)
+            logging.info("Created OpenAI Assistant: %s", response)
+            OPEN_AI_ASSISTANTS.append(response)
+        else:
+            logging.info("Found assistant, updating it")
+            response = update_assistant(assistant_id, assistant_data)
+            logging.info("Updated OpenAI Assistant: %s", response)
+            OPEN_AI_ASSISTANTS.append(response)
+
+        await user_agent.a_initiate_chat(teachable_agent, message=message.content, clear_history=True)
+        last_message = teachable_agent.last_message(user_agent)
+
+        # split reply into paragraphs, without cutting off words and sending the whole message
+        if len(last_message["content"]) > 1024:
+            logging.info("Found text %s in reply", last_message["content"])
+            split = last_message.split("\n")
+            for _m in split:
+                for i in range(0, len(_m), 1024):
+                    index = split.index(_m)
+                    msg = split[index][i:i+1024]
+                    await message.channel.send(msg)
+        else:
+            await message.channel.send(last_message["content"])
 
 
 # ========== USER/MEMBER EVENTS ==========

@@ -1,0 +1,2 @@
+class OpenAiAssistant < ApplicationRecord
+end
