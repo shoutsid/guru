@@ -414,6 +414,9 @@ async def on_handle_openai_thread(thread_data):
         OPEN_AI_THREADS.append(response)
 
 
+# This will create a new agent for each user that messages the bot
+# Also it creates a new thread,
+# We want to switch this so that we can track every message ID
 @DISCORD_BOT.event
 async def on_message(message):
     # record the message
@@ -435,6 +438,7 @@ async def on_message(message):
         teachable_agent_name = f"discord_assistant_{message.author.id}"
         user_agent = generate_user_agent(user_agent_name)
         current_message = DEFAULT_SYSTEM_MESSAGE
+        MAX_MESSAGES = 10
 
         logging.info("Created user agent %s", user_agent)
         config = LLM_CONFIG.copy()
@@ -457,7 +461,11 @@ async def on_message(message):
         thread = teachable_agent._openai_client.beta.threads.create(
             messages=[],
         )
-        teachable_agent._openai_threads[user_agent] = thread
+
+        # replace internal threads
+        threads = teachable_agent._openai_threads.copy()
+        threads[user_agent] = thread
+        teachable_agent._openai_threads = threads
         data = {
             "external_id": thread.id,
             "metadata": thread.metadata,
@@ -468,7 +476,7 @@ async def on_message(message):
         # find all messages based on message channel.
         messages = await message.channel.history().flatten()
 
-        for msg in messages:
+        for msg in messages[:MAX_MESSAGES]:
             # replace guru with assistant
             role = 'user'
             if msg.author == DISCORD_BOT.user:
@@ -517,8 +525,9 @@ async def on_message(message):
             logging.info("Updated OpenAI Assistant: %s", response)
             OPEN_AI_ASSISTANTS.append(response)
 
-        await user_agent.a_initiate_chat(teachable_agent, message=message.content, clear_history=True)
+        await user_agent.a_initiate_chat(teachable_agent, message=message.content, clear_history=False)
         last_message = teachable_agent.last_message(user_agent)
+        teachable_agent.pretty_print_thread(thread)
 
         # split reply into paragraphs, without cutting off words and sending the whole message
         if len(last_message["content"]) > 1024:
