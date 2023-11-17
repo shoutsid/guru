@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2023_11_17_151932) do
+ActiveRecord::Schema[7.1].define(version: 2023_11_17_160228) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -72,6 +72,18 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_17_151932) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["discord_id"], name: "index_discord_threads_on_discord_id"
+  end
+
+  create_table "discord_users", force: :cascade do |t|
+    t.bigint "discord_id"
+    t.string "name"
+    t.string "discriminator"
+    t.string "avatar"
+    t.boolean "bot"
+    t.boolean "system"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["discord_id"], name: "index_discord_users_on_discord_id"
   end
 
   create_table "open_ai_messages", force: :cascade do |t|

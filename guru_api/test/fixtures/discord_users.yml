@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  discord_id: 
+  name: MyString
+  discriminator: MyString
+  avatar: MyString
+  bot: false
+  system: false
+
+two:
+  discord_id: 
+  name: MyString
+  discriminator: MyString
+  avatar: MyString
+  bot: false
+  system: false

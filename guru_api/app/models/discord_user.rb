@@ -1,0 +1,2 @@
+class DiscordUser < ApplicationRecord
+end

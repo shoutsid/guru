@@ -9,6 +9,7 @@ from guru.api.discord_guild_client import get_guild, create_guild, update_guild
 from guru.api.discord_channel_client import get_channel, create_channel, update_channel
 from guru.api.discord_thread_client import get_thread, create_thread, update_thread
 from guru.api.discord_message_client import get_message, create_message, update_message
+from guru.api.discord_user_client import get_user, create_user, update_user
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
 from guru.db.agent import Agent as AgentModel
@@ -269,6 +270,8 @@ async def on_update_channel_messages(channel):
     except:
         logging.debug("No permissions to channel %s", channel)
 
+# ========== GUILD EVENTS ==========
+
 GUILDS = []
 
 @DISCORD_BOT.event
@@ -316,6 +319,10 @@ async def on_guild_available(guild):
     for thread in guild.threads:
         DISCORD_BOT.dispatch("handle_thread", thread)
 
+    for member in guild.members:
+        DISCORD_BOT.dispatch("handle_user", member)
+# ========== CHANNEL EVENTS ==========
+
 CHANNELS = []
 
 @DISCORD_BOT.event
@@ -349,6 +356,8 @@ async def on_channel_available(channel):
     # find or create messages
     async for message in channel.history():
         DISCORD_BOT.dispatch("handle_message", message)
+
+# ========== THREAD EVENTS ==========
 
 THREADS = []
 
@@ -386,6 +395,8 @@ async def on_handle_thread(thread):
     async for message in thread.history():
         DISCORD_BOT.dispatch("handle_message", message)
 
+# ========== MESSAGE EVENTS ==========
+
 MESSAGES = {}
 
 
@@ -420,13 +431,18 @@ async def on_handle_message(message):
 
 @DISCORD_BOT.event
 async def on_message(message):
+    # record the message
+    DISCORD_BOT.dispatch("handle_message", message)
+
+    # stop cyclclic messages
     if message.author == DISCORD_BOT.user:
         return
 
+    # Deal with ! commands
     if message.content.startswith("!"):
+        await DISCORD_BOT.process_commands(message)
         return
 
-    DISCORD_BOT.dispatch("handle_message", message)
     # TODO: Send to agent and get reply
     # If private message, get context, create a user agent
     # user_agent = UserAgent(
@@ -435,10 +451,41 @@ async def on_message(message):
     # last_message = TEACHABLE_AGENT.last_message(USER_AGENT)
 
 
+# ========== USER/MEMBER EVENTS ==========
+
+USERS = []
+
+@DISCORD_BOT.event
+async def on_handle_user(user):
+    logging.info("Processing user: %s", user)
+    user_data = {
+        "discord_id": user.id,
+        "name": user.name,
+        "discriminator": user.discriminator,
+        "avatar": str(user.avatar),
+        "bot": user.bot,
+        "system": user.system if hasattr(user, 'system') else False
+    }
+
+    response = get_user(user.id)
+
+    if response is None:
+        logging.info("No user found, creating a user")
+        response = create_user(user_data)
+        logging.info("Created user: %s", response)
+        # Add additional logic as needed, like appending to a list
+    else:
+        logging.info("Found user, updating it")
+        response = update_user(user.id, user_data)
+        logging.info("Updated user: %s", response)
+        # Update your stored user data or perform other actions as needed
+
 @DISCORD_BOT.event
 async def on_member_join(member):
     logging.info("Member %s joined", member)
-    MEMBERS.append(member)
+    DISCORD_BOT.dispatch("handle_user", member)
+
+# ========== VOICE EVENTS ==========
 
 @DISCORD_BOT.event
 async def on_stop_recording(ctx):
@@ -450,6 +497,7 @@ async def on_start_recording(ctx):
     ctx.guild.voice_client.start_recording(discord.sinks.MP3Sink(), finished_callback, ctx)
     logging.info("Started recording in %s channel", ctx.author.voice.channel.name)
 
+# TODO: Think about renaming this method
 @DISCORD_BOT.event
 async def on_join_channel(ctx):
     await ctx.author.voice.channel.connect()
