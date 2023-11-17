@@ -1,4 +1,7 @@
 Rails.application.routes.draw do
+  namespace :api do
+    resources :discord_channels
+  end
   resources :discord_guilds
 
   # JSON only

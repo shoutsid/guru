@@ -43,7 +43,7 @@ class DiscordGuildsController < ApplicationController
   private
     # Use callbacks to share common setup or constraints between actions.
     def set_discord_guild
-      @discord_guild = DiscordGuild.find(params[:id])
+      @discord_guild = DiscordGuild.find_by!(discord_id: params[:id])
     end
 
     # Only allow a list of trusted parameters through.

@@ -276,9 +276,41 @@ async def on_update_channel_messages(channel):
     except:
         logging.debug("No permissions to channel %s", channel)
 
+GUILDS = []
+from guru.api.discord_guild_client import get_guild, create_guild, update_guild
+
 @DISCORD_BOT.event
 async def on_guild_join(guild):
+    await on_guild_available(guild)
+
+@DISCORD_BOT.event
+async def on_guild_available(guild):
     logging.info("Joined %s", guild)
+    guild_data = {
+        "discord_id": guild.id,
+        "name": guild.name,
+        "member_count": guild.member_count,
+    }
+    # find or create guild
+    response = get_guild(guild.id)
+    if response is None:
+        logging.info("No guild found")
+        logging.info("Creating a guild")
+        guild_data = {
+            "discord_id": guild.id,
+            "name": guild.name,
+            "member_count": guild.member_count,
+        }
+        response = create_guild(guild_data)
+        logging.info("Created guild")
+        GUILDS.append(response)
+    else:
+        logging.info("Found guild")
+        # update guild
+        logging.info("Updating guild")
+        response = update_guild(guild.id, guild_data)
+        logging.info("Updated guild")
+        GUILDS.append(response)
 
 @DISCORD_BOT.event
 async def on_message(message):

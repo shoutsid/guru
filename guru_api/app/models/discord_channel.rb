@@ -1,0 +1,2 @@
+class DiscordChannel < ApplicationRecord
+end
