@@ -8,10 +8,11 @@ from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESS
 from guru.api.discord_guild_client import get_guild, create_guild, update_guild
 from guru.api.discord_channel_client import get_channel, create_channel, update_channel
 from guru.api.discord_thread_client import get_thread as get_discord_thread, create_thread as create_discord_thread, update_thread as update_discord_thread
-from guru.api.discord_message_client import get_message, create_message, update_message
+from guru.api.discord_message_client import get_message as get_discord_message, create_message as create_discord_message, update_message as update_discord_message
 from guru.api.discord_user_client import get_user, create_user, update_user
 from guru.api.open_ai_assistant_client import get_assistant, create_assistant, update_assistant, list_assistants
 from guru.api.open_ai_thread_client import get_thread as get_open_ai_thread, create_thread as create_open_ai_thread, update_thread as update_open_ai_thread, list_threads as list_open_ai_thread
+from guru.api.open_ai_message_client import get_message as get_open_ai_message, create_message as create_open_ai_message, update_message as update_open_ai_message, list_messages as list_open_ai_message
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
 from guru.db.agent import Agent as AgentModel
@@ -375,22 +376,20 @@ async def on_handle_message(message):
         "channel_id": message.channel.id,
         "guild_id": guild_id,
     }
-    response = get_message(message.id)
+    response = get_discord_message(message.id)
 
     if response is None:
         logging.info("No message found, creating a message")
-        response = create_message(message_data)
+        response = create_discord_message(message_data)
         logging.info("Created message: %s", response)
         MESSAGES[message.channel.id] = response
     else:
         logging.info("Found message, updating it")
-        response = update_message(message.id, message_data)
+        response = update_discord_message(message.id, message_data)
         logging.info("Updated message: %s", response)
         MESSAGES[message.channel.id] = response
 
 OPEN_AI_ASSISTANTS = []
-
-
 OPEN_AI_THREADS = []
 
 
@@ -413,6 +412,24 @@ async def on_handle_openai_thread(thread_data):
         logging.info("Updated OpenAI Thread: %s", response)
         OPEN_AI_THREADS.append(response)
 
+
+@DISCORD_BOT.event
+async def on_handle_openai_message(message_data):
+    logging.info("Processing OpenAI Message: %s",
+                 message_data.get("external_id"))
+    message_id = message_data.get("external_id")
+
+    response = get_open_ai_message(message_id)
+
+    if response is None:
+        logging.info("No message found, creating a new one")
+        response = create_open_ai_message(message_data)
+        logging.info("Created OpenAI Message: %s", response)
+        # Add additional logic as needed
+    else:
+        logging.info("Found message, updating it")
+        response = update_open_ai_message(message_id, message_data)
+        logging.info("Updated OpenAI Message: %s", response)
 
 # This will create a new agent for each user that messages the bot
 # Also it creates a new thread,
@@ -527,6 +544,35 @@ async def on_message(message):
 
         await user_agent.a_initiate_chat(teachable_agent, message=message.content, clear_history=False)
         last_message = teachable_agent.last_message(user_agent)
+
+        response_messages = teachable_agent._openai_client.beta.threads.messages.list(
+            thread.id, order="asc")
+
+        for oai_message in response_messages:
+            # LUL 🤣 wat?
+            content = ""
+            logging.debug("First Content: %s", oai_message.content)
+            for c in oai_message.content:
+                logging.debug("In loop Content: %s", c)
+
+                logging.debug("Text & value")
+                logging.debug(c.text)
+                logging.debug(c.text.value)
+                content += c.text.value
+
+            logging.debug("Content: %s", content)
+            data = {
+                "external_id": oai_message.id,
+                "thread_id": thread.id,
+                "role": oai_message.role,
+                "content": content,
+                "file_ids": oai_message.file_ids,
+                "assistant_id": oai_message.assistant_id,
+                "run_id": oai_message.run_id,
+                "metadata": oai_message.metadata,
+            }
+            DISCORD_BOT.dispatch("handle_openai_message", data)
+
         teachable_agent.pretty_print_thread(thread)
 
         # split reply into paragraphs, without cutting off words and sending the whole message

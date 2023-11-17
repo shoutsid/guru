@@ -14,16 +14,14 @@ class OpenAiMessagesTest < ApplicationSystemTestCase
     visit open_ai_messages_url
     click_on "New open ai message"
 
+    fill_in "Assistant", with: @open_ai_message.assistant_id
     fill_in "Content", with: @open_ai_message.content
+    fill_in "External", with: @open_ai_message.external_id
     fill_in "File ids", with: @open_ai_message.file_ids
     fill_in "Metadata", with: @open_ai_message.metadata
-    fill_in "Object", with: @open_ai_message.object
-    fill_in "Openai assitant", with: @open_ai_message.openai_assitant_id
-    fill_in "Openai created at", with: @open_ai_message.openai_created_at
-    fill_in "Openai", with: @open_ai_message.openai_id
-    fill_in "Openai thread", with: @open_ai_message.openai_thread_id
     fill_in "Role", with: @open_ai_message.role
     fill_in "Run", with: @open_ai_message.run_id
+    fill_in "Thread", with: @open_ai_message.thread_id
     click_on "Create Open ai message"
 
     assert_text "Open ai message was successfully created"
@@ -34,16 +32,14 @@ class OpenAiMessagesTest < ApplicationSystemTestCase
     visit open_ai_message_url(@open_ai_message)
     click_on "Edit this open ai message", match: :first
 
+    fill_in "Assistant", with: @open_ai_message.assistant_id
     fill_in "Content", with: @open_ai_message.content
+    fill_in "External", with: @open_ai_message.external_id
     fill_in "File ids", with: @open_ai_message.file_ids
     fill_in "Metadata", with: @open_ai_message.metadata
-    fill_in "Object", with: @open_ai_message.object
-    fill_in "Openai assitant", with: @open_ai_message.openai_assitant_id
-    fill_in "Openai created at", with: @open_ai_message.openai_created_at
-    fill_in "Openai", with: @open_ai_message.openai_id
-    fill_in "Openai thread", with: @open_ai_message.openai_thread_id
     fill_in "Role", with: @open_ai_message.role
     fill_in "Run", with: @open_ai_message.run_id
+    fill_in "Thread", with: @open_ai_message.thread_id
     click_on "Update Open ai message"
 
     assert_text "Open ai message was successfully updated"

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2023_11_17_195247) do
+ActiveRecord::Schema[7.1].define(version: 2023_11_17_205024) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -98,6 +98,20 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_17_195247) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["external_id"], name: "index_open_ai_assistants_on_external_id"
+  end
+
+  create_table "open_ai_messages", force: :cascade do |t|
+    t.string "external_id"
+    t.string "thread_id"
+    t.string "role"
+    t.text "content"
+    t.text "file_ids"
+    t.string "assistant_id"
+    t.string "run_id"
+    t.jsonb "metadata"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["external_id"], name: "index_open_ai_messages_on_external_id"
   end
 
   create_table "open_ai_threads", force: :cascade do |t|

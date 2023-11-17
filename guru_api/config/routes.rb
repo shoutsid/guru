@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  resources :open_ai_messages
   resources :open_ai_threads
   resources :open_ai_assistants
   resources :discord_users

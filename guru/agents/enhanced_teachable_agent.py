@@ -478,7 +478,6 @@ class GPTAssistantAgent(ConversableAgent):
         unread_index = self._unread_index[sender] or 0
         pending_messages = messages[unread_index:]
 
-        # Check and initiate a new thread if necessary
         if self._openai_threads.get(sender, None) is None:
             self._openai_threads[sender] = self._openai_client.beta.threads.create(
                 messages=[],
