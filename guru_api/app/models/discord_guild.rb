@@ -1,0 +1,2 @@
+class DiscordGuild < ApplicationRecord
+end

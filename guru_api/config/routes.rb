@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  resources :discord_guilds
 
   # JSON only
   resources :users, defaults: { format: :json }

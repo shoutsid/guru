@@ -277,6 +277,10 @@ async def on_update_channel_messages(channel):
         logging.debug("No permissions to channel %s", channel)
 
 @DISCORD_BOT.event
+async def on_guild_join(guild):
+    logging.info("Joined %s", guild)
+
+@DISCORD_BOT.event
 async def on_message(message):
     context = await DISCORD_BOT.get_context(message)
     context.message = message

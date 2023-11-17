@@ -7,6 +7,11 @@ class CreateOpenAiThreads < ActiveRecord::Migration[7.1]
       t.integer :openai_updated_at
       t.text :meta_data
 
+
+      # discord links to remove and replace with modeling
+      t.string :discord_channel
+      t.boolean :discord, default: false
+
       t.timestamps
     end
   end

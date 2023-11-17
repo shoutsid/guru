@@ -10,7 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2023_11_16_232244) do
+ActiveRecord::Schema[7.1].define(version: 2023_11_17_125717) do
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "plpgsql"
+
   create_table "agents", force: :cascade do |t|
     t.string "name"
     t.string "openai_id"
@@ -26,13 +29,12 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_16_232244) do
     t.datetime "updated_at", null: false
   end
 
-  create_table "emotion", force: :cascade do |t|
-    t.string "emotion", null: false
-  end
-
-  create_table "entity", force: :cascade do |t|
-    t.string "text", null: false
-    t.string "label", null: false
+  create_table "discord_guilds", force: :cascade do |t|
+    t.bigint "discord_id"
+    t.string "name"
+    t.integer "member_count"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "open_ai_messages", force: :cascade do |t|
@@ -47,10 +49,11 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_16_232244) do
     t.string "openai_assitant_id"
     t.text "metadata"
     t.string "run_id"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
     t.integer "thread_id", null: false
     t.string "discord_id"
+    t.string "string"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["thread_id"], name: "index_open_ai_messages_on_thread_id"
   end
 
@@ -60,18 +63,10 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_16_232244) do
     t.integer "openai_created_at"
     t.integer "openai_updated_at"
     t.text "meta_data"
+    t.string "discord_channel"
+    t.boolean "discord", default: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.boolean "discord", default: false
-    t.string "discord_channel"
-  end
-
-  create_table "opinion", force: :cascade do |t|
-    t.float "sentiment_score", null: false
-  end
-
-  create_table "topic", force: :cascade do |t|
-    t.string "keywords", null: false
   end
 
   create_table "users", force: :cascade do |t|

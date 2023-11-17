@@ -1,6 +1,19 @@
 version: '2.23'
 
 services:
+  db:
+    container_name: db
+    image: postgres
+    volumes:
+      - db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: guru_api_development
+      POSTGRES_USER: guru_api
+      POSTGRES_PASSWORD:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+
   # Client for the Guru API
   discord_bot:
     build:
@@ -8,6 +21,7 @@ services:
       dockerfile: .devcontainer/Dockerfile
     depends_on:
       - guru_api
+      - db
     links:
       - guru_api:guru_api
     env_file:
@@ -52,6 +66,12 @@ services:
       - guru_api_storage:/rails/storage/
     ports:
       - 3000:3000
+    depends_on:
+      - db
+    links:
+      - db:db
+
 
 volumes:
   guru_api_storage:
+  db:
