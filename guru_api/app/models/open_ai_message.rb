@@ -1,5 +1,6 @@
 class OpenAiMessage < ApplicationRecord
     validates_presence_of :content, :role
+    validates_uniqueness_of :discord_id, if: :discord_id?
     belongs_to :thread, foreign_key: :thread_id, class_name: 'OpenAiThread', inverse_of: :messages
 
     # validates :openai_id, presence: true, uniqueness: true

@@ -14,10 +14,15 @@ def list_messages(thread_id):
 
 # Function to show a specific open_ai_message by ID within a thread
 def get_message(thread_id, message_id):
-    url = f"{BASE_URL}/threads/{thread_id}/messages/{message_id}.json"
-    response = SESSION.get(url)
-    response.raise_for_status()
-    return response.json()
+    try:
+        url = f"{BASE_URL}/threads/{thread_id}/messages/{message_id}.json"
+        response = SESSION.get(url)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        # Handle exceptions or log errors here
+        print(f'Error occurred while retrieving a message: {e}')
+        return None  # You can choose to return None or handle the error as needed
 
 # Function to create a new open_ai_message within a thread
 def create_message(thread_id, message_data):

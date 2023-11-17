@@ -58,6 +58,6 @@ class MessagesController < ApplicationController
   end
 
   def open_ai_message_params
-    params.require(:message).permit(:openai_id, :object, :openai_created_at, :openai_thread_id, :role, :content, :file_ids, :openai_assitant_id, :metadata, :run_id)
+    params.require(:message).permit(:openai_id, :object, :openai_created_at, :openai_thread_id, :role, :content, :file_ids, :openai_assitant_id, :metadata, :run_id, :discord_id)
   end
 end
