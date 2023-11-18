@@ -26,6 +26,8 @@ services:
     container_name: kafka
     ports:
       - "9092:9092"
+    depends_on:
+      - zookeeper
     environment:
       KAFKA_ADVERTISED_HOST_NAME: kafka
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -33,13 +35,32 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - kafka_data:/kafka/kafka-logs
+    links:
+      - zookeeper:zookeeper
 
+  # Client for the Guru API
+  python_guru_kafka_consumer:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    depends_on:
+      - guru_api
+      - db
+      - kafka
+      - zookeeper
+    links:
+      - guru_api:guru_api
+    env_file:
+      - .env_discord_bot
+    volumes:
+      - .:/app
+    command: python3 ./guru/api/kafka/consumer.py
 
   # Client for the Guru API
   discord_bot:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile
+      dockerfile: ./Dockerfile
     depends_on:
       - guru_api
       - db
@@ -52,24 +73,6 @@ services:
     volumes:
       - .:/app
     command: python3 run_discord_bot.py
-
-  # Chat Completion by python OpenAI Agents
-  # agent_api:
-  #   container_name: agent_api
-  #   build:
-  #     context: .
-  #     dockerfile: .devcontainer/Dockerfile
-  #   depends_on:
-  #     - guru_api
-  #   links:
-  #     - guru_api:guru_api
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     - .:/app
-  #   command: python3 main.py
-  #   ports:
-  #     - 8000:8000
 
   # This runs as it's in Production. Modify with caution.
   # primary api backend
@@ -105,8 +108,6 @@ services:
         - OPENAI_API_KEY=${OPENAI_API_KEY}
         - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
         - AGENT_API=http://agent_api:8000
-        - KAFKA_BROKERS=kafka:9092
-        - ZOOKEEPER_URL=zookeeper:2181
     command: ./bin/karafka server
     env_file:
       - .env
@@ -120,6 +121,30 @@ services:
     links:
       - db:db
 
+  karafka_web:
+    container_name: karafka_web
+    build:
+      context: ./guru_api
+      dockerfile: Dockerfile
+      args:
+        - OPENAI_API_KEY=${OPENAI_API_KEY}
+        - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+        - AGENT_API=http://agent_api:8000
+    command: bash -c "bundle exec karafka-web install && bundle exec rackup -o 0.0.0.0 karafka_web.ru"
+    env_file:
+      - .env
+      - .env_karafka_web
+    volumes:
+      - ./guru_api:/rails
+      - guru_api_storage:/rails/storage/
+    depends_on:
+      - db
+      - kafka
+      - zookeeper
+    links:
+      - db:db
+    ports:
+      - 9292:9292
 
 volumes:
   guru_api_storage:

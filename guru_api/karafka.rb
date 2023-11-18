@@ -1,11 +1,10 @@
-# frozen_string_literal: true
-
+require 'karafka'
+require 'karafka/web'
 
 class KarafkaApp < Karafka::App
   setup do |config|
     kafka_url = ENV.fetch('KAFKA_URL') { 'kafka:9092' }
     config.kafka = { 'bootstrap.servers': kafka_url }
-    config.client_id = 'example_app'
     # Recreate consumers with each batch. This will allow Rails code reload to work in the
     # development mode. Otherwise Karafka process would not be aware of code changes
     config.consumer_persistence = !Rails.env.development?
@@ -33,7 +32,7 @@ class KarafkaApp < Karafka::App
   routes.draw do
     # Uncomment this if you use Karafka with ActiveJob
     # You need to define the topic per each queue name you use
-    # active_job_topic :default
+    active_job_topic :default
     topic :example do
       # Uncomment this if you want Karafka to manage your topics configuration
       # Managing topics configuration via routing will allow you to ensure config consistency
@@ -44,3 +43,11 @@ class KarafkaApp < Karafka::App
     end
   end
 end
+
+# frozen_string_literal: true
+Karafka::Web.setup do |config|
+  # You may want to set it per ENV. This value was randomly generated.
+  config.ui.sessions.secret = 'a86d9ac3e95f21b8de7d249784145f9cdde6dc4b1876cc5ee324ba54a90c9cb8'
+end
+
+Karafka::Web.enable!

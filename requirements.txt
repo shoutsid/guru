@@ -51,6 +51,9 @@ sqlmodel==0.0.11
 elevenlabs
 spacy==3.7.2
 
+# required for event machine with guru
+confluent-kafka==2.3.0
+
 # hopefully we can get rid of the torch requirements
 # Used for conversational analysis
 # transformers
