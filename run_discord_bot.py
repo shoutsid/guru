@@ -208,12 +208,11 @@ async def print_channels_to_console(ctx):
     for channel in ctx.guild.channels:
         print(channel)
 
-
-@DISCORD_BOT.command(description="Reset the agents current conversation")
-async def reset(ctx):
-    TEACHABLE_AGENT.reset()
-    USER_AGENT.reset()
-    await ctx.send("Reset the agents current conversation.")
+@DISCORD_BOT.command(description="test command")
+async def test(ctx):
+    thread = find_or_create_open_ai_thread(ctx.author)
+    await ctx.send(f"Thread: {thread}")
+    # user_agent, teachable_agent = create_agents(ctx.message)
 
 # =========== EVENTS
 
@@ -312,7 +311,7 @@ async def on_channel_available(channel):
     async for message in channel.history():
         DISCORD_BOT.dispatch("handle_message", message)
 
-# ========== THREAD EVENTS ==========
+# ========== DISCORD THREAD EVENTS ==========
 
 THREADS = []
 
@@ -350,7 +349,7 @@ async def on_handle_thread(thread):
     async for message in thread.history():
         DISCORD_BOT.dispatch("handle_message", message)
 
-# ========== MESSAGE EVENTS ==========
+# ========== DISCORD MESSAGE EVENTS ==========
 
 MESSAGES = {}
 
@@ -432,7 +431,7 @@ async def on_handle_openai_message(message_data):
         logging.info("Updated OpenAI Message: %s", response)
 
 
-def create_user_agent(message):
+def create_agents(message):
     user_agent_name = f"discord_member_{message.author.id}"
     teachable_agent_name = f"discord_assistant_{message.author.id}"
     user_agent = generate_user_agent(user_agent_name)
@@ -512,6 +511,27 @@ async def send_message_in_paragraphs(message, content):
 MAX_MESSAGES = 10
 
 
+async def a_find_or_create_open_ai_thread(thread_name: str):
+    return find_or_create_open_ai_thread(thread_name)
+
+def find_or_create_open_ai_thread(thread_name: str):
+    # find thread on open ai api and create if not found
+    _threads = list_open_ai_thread()
+    thread = None
+    for t in _threads:
+        if t["name"] == thread_name:
+            thread = t
+            break
+
+    if thread is None:
+        thread = create_open_ai_thread(
+            {
+                "name": thread_name.name,
+            }
+        )
+
+    return thread
+
 @DISCORD_BOT.event
 async def on_message(message):
     # Record the message
@@ -529,11 +549,8 @@ async def on_message(message):
     if isinstance(message.channel, discord.DMChannel):
         logging.info("Received a DM from %s", message.author)
         logging.info("Creating agent for %s", message.author)
-
-        user_agent, teachable_agent = create_user_agent(message)
-        thread = teachable_agent._openai_client.beta.threads.create(
-            messages=[],
-        )
+        thread = find_or_create_open_ai_thread(message.author)
+        user_agent, teachable_agent = create_agents(message)
 
         threads = teachable_agent._openai_threads.copy()
         threads[user_agent] = thread

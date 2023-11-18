@@ -7,7 +7,6 @@ services:
     volumes:
       - db:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: guru_api_development
       POSTGRES_USER: guru_api
       POSTGRES_PASSWORD:
       POSTGRES_HOST_AUTH_METHOD: trust

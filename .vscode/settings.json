@@ -15,6 +15,27 @@
       "driver": "SQLite",
       "database": "E:\\workspace\\guru\\database.db",
       "name": "sql db"
+    },
+    {
+      "previewLimit": 50,
+      "server": "localhost",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "name": "Guru Production",
+      "group": "Guru",
+      "database": "guru_api_production",
+      "username": "guru_api"
+    },
+    {
+      "previewLimit": 50,
+      "server": "localhost",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "database": "guru_api_production",
+      "name": "guru_api_production",
+      "group": "guru_api",
+      "username": "guru_api",
+      "password": ""
     }
   ],
   "sqltools.useNodeRuntime": true
