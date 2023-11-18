@@ -431,15 +431,93 @@ async def on_handle_openai_message(message_data):
         response = update_open_ai_message(message_id, message_data)
         logging.info("Updated OpenAI Message: %s", response)
 
-# This will create a new agent for each user that messages the bot
-# Also it creates a new thread,
-# We want to switch this so that we can track every message ID
+
+def create_user_agent(message):
+    user_agent_name = f"discord_member_{message.author.id}"
+    teachable_agent_name = f"discord_assistant_{message.author.id}"
+    user_agent = generate_user_agent(user_agent_name)
+    current_message = DEFAULT_SYSTEM_MESSAGE
+    config = LLM_CONFIG.copy()
+
+    assistants = list_assistants() or []
+
+    for assistant in assistants:
+        if assistant["name"] == teachable_agent_name:
+            config["assistant_id"] = assistant["external_id"]
+            break
+
+    teachable_agent = EnhancedTeachableAgent(
+        name=f"user_assistant_{message.author.id}",
+        llm_config=config,
+        instructions=current_message
+    )
+
+    return user_agent, teachable_agent
+
+
+def handle_role_message(role, teachable_agent, user_agent, oai_message):
+    if role == 'assistant':
+        teachable_agent._oai_messages[teachable_agent].append(oai_message)
+        user_agent._oai_messages[teachable_agent].append(oai_message)
+    else:
+        oai_message['role'] = 'user'
+        teachable_agent._oai_messages[user_agent].append(oai_message)
+        user_agent._oai_messages[user_agent].append(oai_message)
+
+
+def process_openai_messages(teachable_agent, thread):
+    response_messages = teachable_agent._openai_client.beta.threads.messages.list(
+        thread.id, order="asc")
+
+    for oai_message in response_messages:
+        content = ""
+        logging.debug("First Content: %s", oai_message.content)
+        for c in oai_message.content:
+            logging.debug("In loop Content: %s", c)
+
+            logging.debug("Text & value")
+            logging.debug(c.text)
+            logging.debug(c.text.value)
+            content += c.text.value
+
+        logging.debug("Content: %s", content)
+        data = {
+            "external_id": oai_message.id,
+            "thread_id": thread.id,
+            "role": oai_message.role,
+            "content": content,
+            "file_ids": oai_message.file_ids,
+            "assistant_id": oai_message.assistant_id,
+            "run_id": oai_message.run_id,
+            "metadata": oai_message.metadata,
+        }
+        DISCORD_BOT.dispatch("handle_openai_message", data)
+
+
+async def send_message_in_paragraphs(message, content):
+    if len(content) > 1024:
+        logging.info("Found text %s in reply", content)
+        split = content.split("\n")
+        for _m in split:
+            for i in range(0, len(_m), 1024):
+                index = split.index(_m)
+                msg = split[index][i:i+1024]
+                # Use 'await' to send messages in an async function
+                await message.channel.send(msg)
+    else:
+        # Use 'await' to send messages in an async function
+        await message.channel.send(content)
+
+
+MAX_MESSAGES = 10
+
+
 @DISCORD_BOT.event
 async def on_message(message):
-    # record the message
+    # Record the message
     DISCORD_BOT.dispatch("handle_message", message)
 
-    # stop cyclclic messages
+    # Stop cyclic messages
     if message.author == DISCORD_BOT.user:
         return
 
@@ -451,35 +529,12 @@ async def on_message(message):
     if isinstance(message.channel, discord.DMChannel):
         logging.info("Received a DM from %s", message.author)
         logging.info("Creating agent for %s", message.author)
-        user_agent_name = f"discord_member_{message.author.id}"
-        teachable_agent_name = f"discord_assistant_{message.author.id}"
-        user_agent = generate_user_agent(user_agent_name)
-        current_message = DEFAULT_SYSTEM_MESSAGE
-        MAX_MESSAGES = 10
 
-        logging.info("Created user agent %s", user_agent)
-        config = LLM_CONFIG.copy()
-
-        # Lookup by name
-        assistants = list_assistants()
-        if assistants is None:
-            assistants = []
-
-        for assistant in assistants:
-            if assistant["name"] == teachable_agent_name:
-                config["assistant_id"] = assistant["external_id"]
-                break
-
-        teachable_agent = EnhancedTeachableAgent(
-            name=f"user_assistant_{message.author.id}",
-            llm_config=config,
-            instructions=current_message
-        )
+        user_agent, teachable_agent = create_user_agent(message)
         thread = teachable_agent._openai_client.beta.threads.create(
             messages=[],
         )
 
-        # replace internal threads
         threads = teachable_agent._openai_threads.copy()
         threads[user_agent] = thread
         teachable_agent._openai_threads = threads
@@ -489,28 +544,13 @@ async def on_message(message):
         }
         DISCORD_BOT.dispatch("handle_openai_thread", data)
 
-        # for now, we don't have open_ai_message objects on the guru pi
-        # find all messages based on message channel.
         messages = await message.channel.history().flatten()
 
         for msg in messages[:MAX_MESSAGES]:
-            # replace guru with assistant
-            role = 'user'
-            if msg.author == DISCORD_BOT.user:
-                role = 'assistant'
-
-            print("changing role: ", role)
+            role = 'user' if msg.author != DISCORD_BOT.user else 'assistant'
+            logging.debug("Changing role: %s", role)
             oai_message = {'content': msg.content, 'role': role}
-
-            # Deal with Base Agent's understanding of the message chain
-            if role == 'assistant':
-                teachable_agent._oai_messages[teachable_agent].append(
-                    oai_message)
-                user_agent._oai_messages[teachable_agent].append(oai_message)
-            else:
-                oai_message['role'] = 'user'
-                teachable_agent._oai_messages[user_agent].append(oai_message)
-                user_agent._oai_messages[user_agent].append(oai_message)
+            handle_role_message(role, teachable_agent, user_agent, oai_message)
 
         assistant_id = teachable_agent.assistant_id
         true_assistant = teachable_agent._openai_assistant
@@ -541,48 +581,9 @@ async def on_message(message):
         await user_agent.a_initiate_chat(teachable_agent, message=message.content, clear_history=False)
         last_message = teachable_agent.last_message(user_agent)
 
-        response_messages = teachable_agent._openai_client.beta.threads.messages.list(
-            thread.id, order="asc")
+        process_openai_messages(teachable_agent, thread)
 
-        for oai_message in response_messages:
-            # LUL 🤣 wat?
-            content = ""
-            logging.debug("First Content: %s", oai_message.content)
-            for c in oai_message.content:
-                logging.debug("In loop Content: %s", c)
-
-                logging.debug("Text & value")
-                logging.debug(c.text)
-                logging.debug(c.text.value)
-                content += c.text.value
-
-            logging.debug("Content: %s", content)
-            data = {
-                "external_id": oai_message.id,
-                "thread_id": thread.id,
-                "role": oai_message.role,
-                "content": content,
-                "file_ids": oai_message.file_ids,
-                "assistant_id": oai_message.assistant_id,
-                "run_id": oai_message.run_id,
-                "metadata": oai_message.metadata,
-            }
-            DISCORD_BOT.dispatch("handle_openai_message", data)
-
-        teachable_agent.pretty_print_thread(thread)
-
-        # split reply into paragraphs, without cutting off words and sending the whole message
-        if len(last_message["content"]) > 1024:
-            logging.info("Found text %s in reply", last_message["content"])
-            split = last_message.split("\n")
-            for _m in split:
-                for i in range(0, len(_m), 1024):
-                    index = split.index(_m)
-                    msg = split[index][i:i+1024]
-                    await message.channel.send(msg)
-        else:
-            await message.channel.send(last_message["content"])
-
+        await send_message_in_paragraphs(message, last_message["content"])
 
 # ========== USER/MEMBER EVENTS ==========
 
