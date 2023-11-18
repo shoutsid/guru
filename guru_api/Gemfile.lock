@@ -99,6 +99,8 @@ GEM
     debug (1.8.0)
       irb (>= 1.5.0)
       reline (>= 0.3.1)
+    digest-crc (0.6.5)
+      rake (>= 12.0.0, < 14.0.0)
     dotenv (2.8.1)
     dotenv-rails (2.8.1)
       dotenv (= 2.8.1)
@@ -114,6 +116,7 @@ GEM
     faraday-multipart (1.0.4)
       multipart-post (~> 2)
     faraday-net_http (3.0.2)
+    ffi (1.16.3)
     globalid (1.2.1)
       activesupport (>= 6.1)
     httparty (0.21.0)
@@ -132,6 +135,17 @@ GEM
     jbuilder (2.11.5)
       actionview (>= 5.0.0)
       activesupport (>= 5.0.0)
+    karafka (2.2.13)
+      karafka-core (>= 2.2.7, < 2.3.0)
+      waterdrop (>= 2.6.11, < 3.0.0)
+      zeitwerk (~> 2.3)
+    karafka-core (2.2.7)
+      concurrent-ruby (>= 1.1)
+      karafka-rdkafka (>= 0.13.9, < 0.15.0)
+    karafka-rdkafka (0.14.0)
+      ffi (~> 1.15)
+      mini_portile2 (~> 2.6)
+      rake (> 12)
     loofah (2.22.0)
       crass (~> 1.0.2)
       nokogiri (>= 1.12.0)
@@ -143,6 +157,7 @@ GEM
     marcel (1.0.2)
     matrix (0.4.2)
     mini_mime (1.1.5)
+    mini_portile2 (2.8.5)
     minitest (5.20.0)
     msgpack (1.7.2)
     multi_xml (0.6.0)
@@ -211,6 +226,8 @@ GEM
     reline (0.4.0)
       io-console (~> 0.5)
     rexml (3.2.6)
+    ruby-kafka (1.5.0)
+      digest-crc
     ruby-openai (6.2.0)
       event_stream_parser (>= 0.3.0, < 1.0.0)
       faraday (>= 1)
@@ -235,6 +252,9 @@ GEM
     timeout (0.4.1)
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
+    waterdrop (2.6.11)
+      karafka-core (>= 2.2.3, < 3.0.0)
+      zeitwerk (~> 2.3)
     web-console (4.2.1)
       actionview (>= 6.0.0)
       activemodel (>= 6.0.0)
@@ -260,9 +280,11 @@ DEPENDENCIES
   httparty
   importmap-rails
   jbuilder
+  karafka (>= 2.2.10)
   pg (~> 1.1)
   puma (>= 5.0)
   rails (~> 7.1.2)
+  ruby-kafka
   ruby-openai
   selenium-webdriver
   sprockets-rails

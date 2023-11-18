@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2023_11_17_205024) do
+ActiveRecord::Schema[7.1].define(version: 2023_11_18_112812) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -27,6 +27,17 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_17_205024) do
     t.text "metadata", default: ""
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "concept_origins", force: :cascade do |t|
+    t.string "conceptable_type", null: false
+    t.bigint "conceptable_id", null: false
+    t.string "originable_type", null: false
+    t.bigint "originable_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conceptable_type", "conceptable_id"], name: "index_concept_origins_on_conceptable"
+    t.index ["originable_type", "originable_id"], name: "index_concept_origins_on_originable"
   end
 
   create_table "discord_channels", force: :cascade do |t|

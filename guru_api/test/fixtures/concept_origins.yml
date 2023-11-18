@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  conceptable: one
+  conceptable_type: Conceptable
+  originable: one
+  originable_type: Originable
+
+two:
+  conceptable: two
+  conceptable_type: Conceptable
+  originable: two
+  originable_type: Originable
