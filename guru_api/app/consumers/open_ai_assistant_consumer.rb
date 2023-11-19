@@ -1,11 +1,8 @@
 # frozen_string_literal: true
 
-# Example consumer that prints messages payloads
-class ExampleConsumer < ApplicationConsumer
+class OpenAiAssistantConsumer < ApplicationConsumer
   def consume
-    messages.each do |message|
-      puts message.payload
-    end
+    OpenAiAssistant.insert_all messages.payloads
   end
 
   # Run anything upon partition being revoked

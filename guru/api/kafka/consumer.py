@@ -98,16 +98,16 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 
 @kafka_consumer_loop(topics=[
-    "example", "discord_channel_update", "discord_guild_update",
+    "discord_channel_update", "discord_guild_update",
     "discord_message_update", "discord_user_update", "discord_thread_update"])
-def process_message(message):
+def process_discord_update(message):
     logging.info(f"Processing message: {message}")
     print(f"Processing message: {message}")
 
-@kafka_consumer_loop(topics=["example"])
-def process_message_two(message):
-    logging.info(f"Processing message two: {message}")
+# @kafka_consumer_loop(topics=["example"])
+# def process_message_two(message):
+#     logging.info(f"Processing message two: {message}")
 
 if __name__ == "__main__":
-    process_message()
-    process_message_two()
+    process_discord_update()
+    # process_message_two()

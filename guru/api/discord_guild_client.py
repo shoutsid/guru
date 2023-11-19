@@ -20,16 +20,19 @@ def get_guild(guild_id):
         print(f'Error occurred while retrieving a guild: {e}')
         return None
 
+from .kafka.producer import trigger_to_topic
+@trigger_to_topic('discord_guilds')
 def create_guild(guild_data):
-    try:
-        url = f"{BASE_URL}/discord_guilds.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.post(url, json=guild_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while creating a guild: {e}')
-        return None
+    return [guild_data]
+    # try:
+    #     url = f"{BASE_URL}/discord_guilds.json"
+    #     headers = {"Content-Type": "application/json"}
+    #     response = SESSION.post(url, json=guild_data, headers=headers)
+    #     response.raise_for_status()
+    #     return response.json()
+    # except requests.exceptions.RequestException as e:
+    #     print(f'Error occurred while creating a guild: {e}')
+    #     return None
 
 def update_guild(guild_id, guild_data):
     try:

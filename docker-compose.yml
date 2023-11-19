@@ -104,7 +104,8 @@ services:
         - OPENAI_API_KEY=${OPENAI_API_KEY}
         - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
         - AGENT_API=http://agent_api:8000
-    command: ./bin/karafka server
+    # command: bash -c "bundle exec karafka install && ./bin/karafka server"
+    command: bash -c "./bin/karafka server"
     env_file:
       - .env
     volumes:

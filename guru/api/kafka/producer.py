@@ -58,12 +58,12 @@ def on_application_shutdown():
     logging.info("Kafka Producer flushed and shut down")
 
 
-@trigger_to_topic('example')
-def my_function(data):
-    return {"data": data}
-
-
 if __name__ == "__main__":
+    @trigger_to_topic('example')
+    def my_function(data):
+        return {"data": data}
+
+
     # Test the decorated function
     my_function("Hello Kafka")
 

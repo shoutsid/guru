@@ -244,9 +244,9 @@ async def on_guild_available(guild):
             "name": guild.name,
             "member_count": guild.member_count,
         }
-        response = create_guild(guild_data)
+        create_guild(guild_data)
         logging.info("Created guild")
-        GUILDS.append(response)
+        # GUILDS.append(response)
     else:
         logging.info("Found guild")
         # update guild
