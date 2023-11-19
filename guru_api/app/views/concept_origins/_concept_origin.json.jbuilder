@@ -1,0 +1,1 @@
+json.extract! concept_origin, :id, :conceptable_id, :conceptable_type, :originable_id, :originable_type, :created_at, :updated_at

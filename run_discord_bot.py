@@ -4,6 +4,8 @@ TODO: Send back the audio to the channel along with the text, so that the user c
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
 
+from openai.types.beta.thread import Thread as OpenAIThreadBase
+from guru.api.kafka.producer import trigger_to_topic
 import os
 import discord
 import time
@@ -197,11 +199,6 @@ async def print_members_to_console(ctx):
 async def print_channels_to_console(ctx):
     for channel in ctx.guild.channels:
         print(channel)
-
-@DISCORD_BOT.command(description="test command")
-async def test(ctx):
-    thread = find_or_create_open_ai_thread(ctx.author)
-    await ctx.send(f"Thread: {thread}")
 
 # =========== EVENTS
 
@@ -416,9 +413,9 @@ async def on_handle_openai_message(message_data):
         logging.info("Updated OpenAI Message: %s", response)
 
 
-def create_agents(message):
-    user_agent_name = f"discord_member_{message.author.id}"
-    teachable_agent_name = f"discord_assistant_{message.author.id}"
+def find_or_create_agents(author):
+    user_agent_name = f"discord_member_{author.id}"
+    teachable_agent_name = f"discord_assistant_{author.id}"
     user_agent = generate_user_agent(user_agent_name)
     current_message = DEFAULT_SYSTEM_MESSAGE
     config = LLM_CONFIG.copy()
@@ -431,7 +428,7 @@ def create_agents(message):
             break
 
     teachable_agent = EnhancedTeachableAgent(
-        name=f"user_assistant_{message.author.id}",
+        name=teachable_agent_name,
         llm_config=config,
         instructions=current_message
     )
@@ -495,6 +492,32 @@ async def send_message_in_paragraphs(message, content):
 
 MAX_MESSAGES = 10
 
+
+def find_open_ai_thread(user):
+    # find thread based on concept origins
+    thread = {}
+    threads = list_open_ai_thread()
+    logging.debug("Finding OpenAI Thread for %s", user.id)
+    for t in threads:
+        logging.debug("Thread: %s", t)
+        if t["concept_origins"][0]["originable_id"] == user.id:
+            logging.debug("Found thread %s", t)
+            thread = t
+            break
+
+    return thread
+
+
+# create concept origin assosication
+@trigger_to_topic('concept_origin')
+def associate_concept_origin(concept_class: str, origin_class: str, conceptable_id: int, originable_id: int):
+    data = {}
+    data["conceptable_class"] = concept_class
+    data["originable_class"] = origin_class
+    data["conceptable_id"] = conceptable_id
+    data["originable_id"] = originable_id
+    return data
+
 @DISCORD_BOT.event
 async def on_message(message):
     # Record the message
@@ -512,20 +535,27 @@ async def on_message(message):
     if isinstance(message.channel, discord.DMChannel):
         logging.info("Received a DM from %s", message.author)
         logging.info("Creating agent for %s", message.author)
-        # thread = find_or_create_open_ai_thread(message.author)
-        user_agent, teachable_agent = create_agents(message)
 
-        # threads = teachable_agent._openai_threads.copy()
-        # threads[user_agent] = thread
-        # teachable_agent._openai_threads = threads
-        # data = {
-        #     "external_id": thread.id,
-        #     "metadata": thread.metadata,
-        # }
-        # DISCORD_BOT.dispatch("handle_openai_thread", data)
+        user_agent, teachable_agent = find_or_create_agents(message.author)
 
+        # insert our existing thread from the guru into the teachable_agent
+        thread = find_open_ai_thread(message.author)
+        if thread != {}:
+            logging.info("Found thread %s", thread)
+
+            OpenAIThreadBase(**thread)
+            threads = teachable_agent._openai_threads.copy()
+            threads[user_agent] = thread
+            teachable_agent._openai_threads = threads
+        else:
+            logging.info("No thread found for %s", message.author)
+
+        # TODO: max messages needs to be adjustable or removed all together
+        # WE can choose to base everything from our guru stored data now
+        # or continue to take from discord
+        #
+        # Below will insert messages into the agents
         messages = await message.channel.history().flatten()
-
         for msg in messages[:MAX_MESSAGES]:
             role = 'user' if msg.author != DISCORD_BOT.user else 'assistant'
             logging.debug("Changing role: %s", role)
@@ -535,7 +565,8 @@ async def on_message(message):
         await user_agent.a_initiate_chat(teachable_agent, message=message.content, clear_history=False)
         last_message = teachable_agent.last_message(user_agent)
 
-        # process_openai_messages(teachable_agent, thread)
+        associate_concept_origin(concept_class="OpenAiThread", origin_class="DiscordUser",
+                                 conceptable_id=teachable_agent._openai_threads[user_agent].id, originable_id=message.author.id)
 
         await send_message_in_paragraphs(message, last_message["content"])
 

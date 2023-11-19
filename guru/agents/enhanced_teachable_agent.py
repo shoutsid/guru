@@ -1,5 +1,7 @@
 from __future__ import annotations
 from guru.api.open_ai_assistant_client import get_assistant, create_assistant, update_assistant
+from guru.api.open_ai_thread_client import get_thread, create_thread, update_thread
+from guru.api.open_ai_message_client import get_message, create_message, update_message
 import json
 import time
 import logging
@@ -462,6 +464,8 @@ class GPTAssistantAgent(ConversableAgent):
 
         # lazly create thread
         self._openai_threads = {}
+
+        # TODO: Replace unread_index with lookup to guru
         self._unread_index = defaultdict(int)
         self.register_reply(Agent, GPTAssistantAgent._invoke_assistant)
 
@@ -492,14 +496,61 @@ class GPTAssistantAgent(ConversableAgent):
             self._openai_threads[sender] = self._openai_client.beta.threads.create(
                 messages=[],
             )
+            # create thread on guru
+            thread_data = {
+                "external_id": self._openai_threads[sender].id,
+                "metadata": self._openai_threads[sender].metadata,
+            }
+            existing_guru_thread = get_thread(self._openai_threads[sender].id)
+            if existing_guru_thread is None:
+                logging.info("No thread found, creating a new one")
+                logging.info("Thread data: %s", thread_data)
+                create_thread(thread_data)
+                logging.info("Sent thread create event")
+            else:
+                logging.info("Found thread, updating it")
+                logging.info("Thread data: %s", thread_data)
+                update_thread(self._openai_threads[sender].id, thread_data)
+                logging.info("Sent thread update event")
+
+
         assistant_thread = self._openai_threads[sender]
         # Process each unread message
         for message in pending_messages:
-            self._openai_client.beta.threads.messages.create(
+            msg = self._openai_client.beta.threads.messages.create(
                 thread_id=assistant_thread.id,
                 content=message["content"],
                 role=message["role"],
             )
+
+            for content in msg.content:
+
+                # TODO: Add other content types
+                if content.type == "text":
+                    # create guru message here
+                    message_data = {
+                        "external_id": msg.id,
+                        "thread_id": msg.thread_id,
+                        "content": content.text.value,
+                        "role": msg.role,
+                        "metadata": msg.metadata,
+                    }
+                    logging.info(
+                        "Received message, sending message create event")
+                    create_message(message_data)
+                    logging.info("Sent message create event")
+
+            existing_guru_message = get_message(msg.id)
+            if existing_guru_message is None:
+                logging.info("No message found, creating a new one")
+                logging.info("Message data: %s", message_data)
+                create_message(message_data)
+                logging.info("Sent message create event")
+            else:
+                logging.info("Found message, updating it")
+                logging.info("Message data: %s", message_data)
+                update_message(message["id"], message_data)
+                logging.info("Sent message update event")
 
         # Create a new run to get responses from the assistant
         run = self._openai_client.beta.threads.runs.create(
@@ -522,6 +573,7 @@ class GPTAssistantAgent(ConversableAgent):
             if len(response["content"]) > 0:
                 response["content"] += "\n\n"
             response["content"] += message["content"]
+
 
         self._unread_index[sender] = len(self._oai_messages[sender]) + 1
         return True, response
@@ -573,6 +625,19 @@ class GPTAssistantAgent(ConversableAgent):
                     if msg.run_id == run.id:
                         for content in msg.content:
                             if content.type == "text":
+                                # create guru message here
+                                message_data = {
+                                    "external_id": msg.id,
+                                    "thread_id": msg.thread_id,
+                                    "content": content.text.value,
+                                    "role": msg.role,
+                                    "metadata": msg.metadata,
+                                }
+                                logging.info(
+                                    "Received response, sending message create event")
+                                create_message(message_data)
+                                logging.info("Sent message create event")
+
                                 new_messages.append(
                                     {"role": msg.role, "content": self._format_assistant_message(content.text)}
                                 )
@@ -617,6 +682,7 @@ class GPTAssistantAgent(ConversableAgent):
                 run_info = json.dumps(run.dict(), indent=2)
                 raise ValueError(f"Unexpected run status: {run.status}. Full run info:\n\n{run_info})")
 
+    # TODO: Add event listeners and publisher for status run status updates
     def _wait_for_run(self, run_id: str, thread_id: str) -> Any:
         """
         Waits for a run to complete or reach a final state.
@@ -695,6 +761,8 @@ class GPTAssistantAgent(ConversableAgent):
             # Delete the existing thread to start fresh in the next conversation
             thread = self._openai_threads[agent]
             logger.info("Clearing thread %s", thread.id)
+
+            # TODO: Delete thread on guru
             self._openai_client.beta.threads.delete(thread.id)
             self._openai_threads.pop(agent)
             self._unread_index[agent] = 0

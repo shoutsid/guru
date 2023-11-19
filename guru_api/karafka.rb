@@ -47,6 +47,11 @@ class KarafkaApp < Karafka::App
     topic :open_ai_message do
       consumer OpenAiMessageConsumer
     end
+
+    # CONCEPT ORIGIN
+    topic :concept_origin do
+      consumer ConceptOriginConsumer
+    end
   end
 end
 
