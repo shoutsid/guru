@@ -251,9 +251,9 @@ async def on_guild_available(guild):
         logging.info("Found guild")
         # update guild
         logging.info("Updating guild")
-        response = update_guild(guild.id, guild_data)
+        update_guild(guild.id, guild_data)
         logging.info("Updated guild")
-        GUILDS.append(response)
+        # GUILDS.append(response)
 
     # find or create channels
     for channel in guild.text_channels:
