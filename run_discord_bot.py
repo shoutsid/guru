@@ -4,6 +4,7 @@ TODO: Send back the audio to the channel along with the text, so that the user c
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
 
+from datetime import datetime
 from openai.types.beta.thread import Thread as OpenAIThreadBase
 from guru.api.kafka.producer import trigger_to_topic
 import os
@@ -208,7 +209,7 @@ async def on_update_channel_messages(channel):
         async for message in channel.history():
             DISCORD_BOT.dispatch("message_update", message)
     except:
-        logging.debug("No permissions to channel %s", channel)
+        logging.info("No permissions to channel %s", channel)
 
 # ========== GUILD EVENTS ==========
 
@@ -452,16 +453,12 @@ def process_openai_messages(teachable_agent, thread):
 
     for oai_message in response_messages:
         content = ""
-        logging.debug("First Content: %s", oai_message.content)
+        logging.info("First Content: %s", oai_message.content)
         for c in oai_message.content:
-            logging.debug("In loop Content: %s", c)
-
-            logging.debug("Text & value")
-            logging.debug(c.text)
-            logging.debug(c.text.value)
+            logging.info("In loop Content: %s", c)
             content += c.text.value
 
-        logging.debug("Content: %s", content)
+        logging.info("Content: %s", content)
         data = {
             "external_id": oai_message.id,
             "thread_id": thread.id,
@@ -492,19 +489,34 @@ async def send_message_in_paragraphs(message, content):
 
 MAX_MESSAGES = 10
 
-
 def find_open_ai_thread(user):
     # find thread based on concept origins
-    thread = {}
+    thread = None
     threads = list_open_ai_thread()
-    logging.debug("Finding OpenAI Thread for %s", user.id)
+    logging.info("Threads: %s", threads)
+    logging.info("Finding OpenAI Thread for %s", user.id)
     for t in threads:
-        logging.debug("Thread: %s", t)
-        if t["concept_origins"][0]["originable_id"] == user.id:
-            logging.debug("Found thread %s", t)
-            thread = t
-            break
 
+        logging.info("Thread: %s", t)
+        for origin in t["concept_origins"]:
+            logging.info("Origin: %s", origin)
+
+            if str(origin["originable_id"]) == str(user.id) and str(origin["originable_type"]) == str("DiscordUser"):
+                logging.info("Found thread %s", t)
+                # Parse the string to a datetime object from guru/rails
+                dt = datetime.strptime(
+                    t["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ')
+                # Convert the datetime object to a Unix timestamp required by openai
+                timestamp = int(time.mktime(dt.timetuple()))
+                thread_data = {
+                    "id": t["external_id"],
+                    "metadata": t["metadata"],
+                    "created_at": timestamp,
+                    "object": "thread"
+                }
+                logging.info("Thread Data: %s", thread_data)
+                thread = OpenAIThreadBase(**thread_data)
+                break
     return thread
 
 
@@ -540,13 +552,9 @@ async def on_message(message):
 
         # insert our existing thread from the guru into the teachable_agent
         thread = find_open_ai_thread(message.author)
-        if thread != {}:
-            logging.info("Found thread %s", thread)
-
-            OpenAIThreadBase(**thread)
-            threads = teachable_agent._openai_threads.copy()
-            threads[user_agent] = thread
-            teachable_agent._openai_threads = threads
+        if thread is not None:
+            logging.info("Found thread for %s", message.author)
+            teachable_agent._openai_threads[user_agent] = thread
         else:
             logging.info("No thread found for %s", message.author)
 
@@ -558,7 +566,7 @@ async def on_message(message):
         messages = await message.channel.history().flatten()
         for msg in messages[:MAX_MESSAGES]:
             role = 'user' if msg.author != DISCORD_BOT.user else 'assistant'
-            logging.debug("Changing role: %s", role)
+            logging.info("Changing role: %s", role)
             oai_message = {'content': msg.content, 'role': role}
             handle_role_message(role, teachable_agent, user_agent, oai_message)
 
@@ -735,7 +743,7 @@ async def deal_with_message(ctx, message, embed=discord.Embed(), embed_message=N
 async def do_tts(ctx, text, embed=discord.Embed(), embed_message=None):
     # If the message is pure text, we can use ElevenLabsText2SpeechTool to convert it to speech
     # Then we can play the audio in the voice channel
-    logging.debug("Converting text to speech")
+    logging.info("Converting text to speech")
     tts = ElevenLabsText2SpeechTool()
     file_path = tts.run(text)
     time.sleep(5) # allow for the file to be created
