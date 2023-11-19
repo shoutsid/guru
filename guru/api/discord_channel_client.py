@@ -1,3 +1,4 @@
+from .kafka.producer import trigger_to_topic
 from .utils import BASE_URL, SESSION, requests
 
 def list_channels():
@@ -20,27 +21,17 @@ def get_channel(channel_id):
         print(f'Error occurred while retrieving a channel: {e}')
         return None
 
-def create_channel(channel_data):
-    try:
-        url = f"{BASE_URL}/discord_channels.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.post(url, json=channel_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while creating a channel: {e}')
-        return None
 
+@trigger_to_topic('discord_channel')
+def create_channel(channel_data):
+    channel_data["id"] = channel_data["discord_id"]
+    return channel_data
+
+
+@trigger_to_topic('discord_channel')
 def update_channel(channel_id, channel_data):
-    try:
-        url = f"{BASE_URL}/discord_channels/{channel_id}.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.put(url, json=channel_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while updating a channel: {e}')
-        return None
+    channel_data['id'] = channel_id
+    return channel_data
 
 def delete_channel(channel_id):
     try:

@@ -32,10 +32,10 @@ class DiscordThreadsController < ApplicationController
 
   private
   def set_discord_thread
-    @discord_thread = DiscordThread.find_by!(discord_id: params[:id])
+    @discord_thread = DiscordThread.find(params[:id])
   end
 
   def discord_thread_params
-    params.require(:discord_thread).permit(:discord_id, :name, :type, :owner_id, :parent_id, :archived, :auto_archive_duration)
+    params.require(:discord_thread).permit(:id, :discord_id, :name, :type, :owner_id, :parent_id, :archived, :auto_archive_duration)
   end
 end

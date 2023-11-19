@@ -7,6 +7,13 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+KAFKA_URL = os.environ.get('KAFKA_URL', 'kafka:9092')
+DEFAULT_CONFIG = {
+    'bootstrap.servers': KAFKA_URL,
+    'group.id': 'guru',
+    'auto.offset.reset': 'earliest',
+}
+
 
 class KafkaProducerSingleton:
     _instance = None
@@ -16,9 +23,8 @@ class KafkaProducerSingleton:
     def get_instance(config=None):
         with KafkaProducerSingleton._lock:
             if KafkaProducerSingleton._instance is None:
-                KafkaProducerSingleton._instance = Producer(config or {
-                    'bootstrap.servers': os.environ.get('KAFKA_URL', 'kafka:9092')
-                })
+                KafkaProducerSingleton._instance = Producer(
+                    config or DEFAULT_CONFIG)
         return KafkaProducerSingleton._instance
 
     @staticmethod

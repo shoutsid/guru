@@ -32,10 +32,10 @@ class DiscordChannelsController < ApplicationController
 
   private
   def set_discord_channel
-    @discord_channel = DiscordChannel.find_by!(discord_id: params[:id])
+    @discord_channel = DiscordChannel.find(params[:id])
   end
 
   def discord_channel_params
-    params.require(:discord_channel).permit(:discord_id, :name, :type, :position, :topic, :guild_id)
+    params.require(:discord_channel).permit(:id, :discord_id, :name, :type, :position, :topic, :guild_id)
   end
 end

@@ -32,10 +32,10 @@ class DiscordUsersController < ApplicationController
 
   private
   def set_discord_user
-    @discord_user = DiscordUser.find_by!(discord_id: params[:id])
+    @discord_user = DiscordUser.find(params[:id])
   end
 
   def discord_user_params
-    params.require(:discord_user).permit(:discord_id, :name, :discriminator, :avatar, :bot, :system)
+    params.require(:discord_user).permit(:id, :discord_id, :name, :discriminator, :avatar, :bot, :system)
   end
 end

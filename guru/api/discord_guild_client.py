@@ -21,9 +21,9 @@ def get_guild(guild_id):
         print(f'Error occurred while retrieving a guild: {e}')
         return None
 
-
 @trigger_to_topic('discord_guild')
 def create_guild(guild_data):
+    guild_data["id"] = guild_data["discord_id"]
     return guild_data
 
 

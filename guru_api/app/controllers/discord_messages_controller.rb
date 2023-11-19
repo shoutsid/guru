@@ -33,10 +33,10 @@ class DiscordMessagesController < ApplicationController
   private
 
   def set_discord_message
-    @discord_message = DiscordMessage.find_by!(discord_id: params[:id])
+    @discord_message = DiscordMessage.find(params[:id])
   end
 
   def discord_message_params
-    params.require(:discord_message).permit(:discord_id, :content, :author_id, :channel_id, :guild_id)
+    params.require(:discord_message).permit(:id, :discord_id, :content, :author_id, :channel_id, :guild_id)
   end
 end

@@ -1,3 +1,4 @@
+from .kafka.producer import trigger_to_topic
 from .utils import BASE_URL, SESSION, requests
 
 
@@ -23,28 +24,16 @@ def get_user(user_id):
         return None
 
 
+@trigger_to_topic('discord_user')
 def create_user(user_data):
-    try:
-        url = f"{BASE_URL}/discord_users.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.post(url, json=user_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while creating a user: {e}')
-        return None
+    user_data["id"] = user_data["discord_id"]
+    return user_data
 
 
+@trigger_to_topic('discord_user')
 def update_user(user_id, user_data):
-    try:
-        url = f"{BASE_URL}/discord_users/{user_id}.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.put(url, json=user_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while updating a user: {e}')
-        return None
+    user_data["id"] = user_id
+    return user_data
 
 
 def delete_user(user_id):
