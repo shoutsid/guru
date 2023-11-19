@@ -1,4 +1,5 @@
 class DiscordChannel < ApplicationRecord
+  include KafkaEventPublisher
   self.inheritance_column = :_type_disabled
 
   belongs_to :guild, class_name: 'DiscordGuild', foreign_key: 'guild_id', primary_key: 'discord_id'

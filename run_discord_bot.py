@@ -4,6 +4,13 @@ TODO: Send back the audio to the channel along with the text, so that the user c
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
 
+import os
+import discord
+import time
+from langchain.agents import load_tools
+from langchain.tools import Tool, ElevenLabsText2SpeechTool
+from discord.ext import commands, tasks
+from discord_bot.audio_to_text import AudioToText
 from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE, extract_file_path
 from guru.api.discord_guild_client import get_guild, create_guild, update_guild
 from guru.api.discord_channel_client import get_channel, create_channel, update_channel
@@ -15,23 +22,6 @@ from guru.api.open_ai_thread_client import get_thread as get_open_ai_thread, cre
 from guru.api.open_ai_message_client import get_message as get_open_ai_message, create_message as create_open_ai_message, update_message as update_open_ai_message, list_messages as list_open_ai_message
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
-from guru.db.agent import Agent as AgentModel
-
-import os
-import discord
-import time
-# from dotenv import load_dotenv
-
-__import__('pysqlite3')
-import sys
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-
-from discord.ext import commands, tasks
-from langchain.agents import load_tools
-from langchain.tools import Tool, ElevenLabsText2SpeechTool
-from autogen import Agent
-
-from discord_bot.audio_to_text import AudioToText
 from settings import CONFIG_LIST
 
 load_logger()

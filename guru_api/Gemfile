@@ -17,11 +17,13 @@ gem "stimulus-rails"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
 
-gem "ruby-openai"
+gem "ruby-openai", '~> 6.2.0'
 gem 'dotenv-rails', groups: [:development, :test]
 gem 'httparty'
-
 gem 'ruby-kafka'
+
+gem "karafka", ">= 2.2.10"
+gem "karafka-web", "~> 0.7.10"
 
 # Use Redis adapter to run Action Cable in production
 # gem "redis", ">= 4.0.1"
@@ -57,7 +59,3 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
-
-gem "karafka", ">= 2.2.10"
-
-gem "karafka-web", "~> 0.7.10"

@@ -18,8 +18,6 @@ services:
     container_name: zookeeper
     ports:
       - "2181:2181"
-    volumes:
-      - zookeeper_data:/data
 
   kafka:
     image: wurstmeister/kafka
@@ -31,10 +29,8 @@ services:
     environment:
       KAFKA_ADVERTISED_HOST_NAME: kafka
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LOG_DIRS: "/kafka/kafka-logs"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - kafka_data:/kafka/kafka-logs
     links:
       - zookeeper:zookeeper
 
