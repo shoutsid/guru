@@ -24,13 +24,11 @@ def get_thread(thread_id):
 
 @trigger_to_topic('discord_thread')
 def create_thread(thread_data):
-    thread_data["id"] = thread_data["discord_id"]
     return thread_data
 
 
 @trigger_to_topic('discord_thread')
 def update_thread(thread_id, thread_data):
-    thread_data["id"] = thread_id
     return thread_data
 
 def delete_thread(thread_id):

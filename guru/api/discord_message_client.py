@@ -24,13 +24,11 @@ def get_message(message_id):
 
 @trigger_to_topic('discord_message')
 def create_message(message_data):
-    message_data["id"] = message_data["discord_id"]
     return message_data
 
 
 @trigger_to_topic('discord_message')
 def update_message(message_id, message_data):
-    message_data["id"] = message_id
     return message_data
 
 def delete_message(message_id):

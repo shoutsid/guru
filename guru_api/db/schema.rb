@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2023_11_18_112812) do
+ActiveRecord::Schema[7.1].define(version: 2023_11_19_163932) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -40,8 +40,7 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_18_112812) do
     t.index ["originable_type", "originable_id"], name: "index_concept_origins_on_originable"
   end
 
-  create_table "discord_channels", force: :cascade do |t|
-    t.bigint "discord_id"
+  create_table "discord_channels", primary_key: "discord_id", id: :bigint, default: nil, force: :cascade do |t|
     t.string "name"
     t.string "type"
     t.integer "position"
@@ -53,16 +52,14 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_18_112812) do
     t.index ["guild_id"], name: "index_discord_channels_on_guild_id"
   end
 
-  create_table "discord_guilds", force: :cascade do |t|
-    t.bigint "discord_id"
+  create_table "discord_guilds", primary_key: "discord_id", id: :bigint, default: nil, force: :cascade do |t|
     t.string "name"
     t.integer "member_count"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
 
-  create_table "discord_messages", force: :cascade do |t|
-    t.bigint "discord_id"
+  create_table "discord_messages", primary_key: "discord_id", id: :bigint, default: nil, force: :cascade do |t|
     t.text "content"
     t.bigint "author_id"
     t.bigint "channel_id"
@@ -72,8 +69,7 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_18_112812) do
     t.index ["discord_id"], name: "index_discord_messages_on_discord_id"
   end
 
-  create_table "discord_threads", force: :cascade do |t|
-    t.bigint "discord_id"
+  create_table "discord_threads", primary_key: "discord_id", id: :bigint, default: nil, force: :cascade do |t|
     t.string "name"
     t.string "type"
     t.bigint "owner_id"
@@ -85,8 +81,7 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_18_112812) do
     t.index ["discord_id"], name: "index_discord_threads_on_discord_id"
   end
 
-  create_table "discord_users", force: :cascade do |t|
-    t.bigint "discord_id"
+  create_table "discord_users", primary_key: "discord_id", id: :bigint, default: nil, force: :cascade do |t|
     t.string "name"
     t.string "discriminator"
     t.string "avatar"
@@ -97,8 +92,7 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_18_112812) do
     t.index ["discord_id"], name: "index_discord_users_on_discord_id"
   end
 
-  create_table "open_ai_assistants", force: :cascade do |t|
-    t.string "external_id"
+  create_table "open_ai_assistants", primary_key: "external_id", id: :string, force: :cascade do |t|
     t.string "name"
     t.text "description"
     t.string "model"
@@ -111,8 +105,7 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_18_112812) do
     t.index ["external_id"], name: "index_open_ai_assistants_on_external_id"
   end
 
-  create_table "open_ai_messages", force: :cascade do |t|
-    t.string "external_id"
+  create_table "open_ai_messages", primary_key: "external_id", id: :string, force: :cascade do |t|
     t.string "thread_id"
     t.string "role"
     t.text "content"
@@ -125,8 +118,7 @@ ActiveRecord::Schema[7.1].define(version: 2023_11_18_112812) do
     t.index ["external_id"], name: "index_open_ai_messages_on_external_id"
   end
 
-  create_table "open_ai_threads", force: :cascade do |t|
-    t.string "external_id"
+  create_table "open_ai_threads", primary_key: "external_id", id: :string, force: :cascade do |t|
     t.jsonb "metadata"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

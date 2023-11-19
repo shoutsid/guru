@@ -2,6 +2,10 @@
 
 class DiscordChannelConsumer < ApplicationConsumer
   def consume
-    DiscordChannel.upsert_all messages.payloads
+    # TODO: sort out how to handle multiple of the same messages
+    messages.payloads.each do |payload|
+      Rails.logger.debug("DiscordChannelConsumer: #{payload}")
+      DiscordChannel.upsert payload
+    end
   end
 end

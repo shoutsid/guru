@@ -2,14 +2,9 @@
 
 class OpenAiAssistantConsumer < ApplicationConsumer
   def consume
-    OpenAiAssistant.insert_all messages.payloads
+    messages.payloads.each do |payload|
+      Rails.logger.debug("OpenAiAssistantConsumer: #{payload}")
+      OpenAiAssistant.upsert payload
+    end
   end
-
-  # Run anything upon partition being revoked
-  # def revoked
-  # end
-
-  # Define here any teardown things you want when Karafka server stops
-  # def shutdown
-  # end
 end

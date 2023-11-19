@@ -26,13 +26,11 @@ def get_user(user_id):
 
 @trigger_to_topic('discord_user')
 def create_user(user_data):
-    user_data["id"] = user_data["discord_id"]
     return user_data
 
 
 @trigger_to_topic('discord_user')
 def update_user(user_id, user_data):
-    user_data["id"] = user_id
     return user_data
 
 

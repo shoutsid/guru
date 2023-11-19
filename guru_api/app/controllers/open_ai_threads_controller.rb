@@ -32,7 +32,7 @@ class OpenAiThreadsController < ApplicationController
 
   private
   def set_open_ai_thread
-    @open_ai_thread = OpenAiThread.find_by!(external_id: params[:id])
+    @open_ai_thread = OpenAiThread.find(params[:id])
   end
 
   def open_ai_thread_params

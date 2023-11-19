@@ -1,5 +1,6 @@
+import logging
+from .kafka.producer import trigger_to_topic
 from .utils import BASE_URL, SESSION, requests
-
 
 def list_assistants():
     try:
@@ -23,28 +24,16 @@ def get_assistant(assistant_id):
         return None
 
 
+@trigger_to_topic('open_ai_assistant')
 def create_assistant(assistant_data):
-    try:
-        url = f"{BASE_URL}/open_ai_assistants.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.post(url, json=assistant_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while creating an assistant: {e}')
-        return None
+    logging.info(f"123assistant_data: {assistant_data}")
+    return assistant_data
 
 
+@trigger_to_topic('open_ai_assistant')
 def update_assistant(assistant_id, assistant_data):
-    try:
-        url = f"{BASE_URL}/open_ai_assistants/{assistant_id}.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.put(url, json=assistant_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while updating an assistant: {e}')
-        return None
+    logging.info(f"123assistant_data: {assistant_data}")
+    return assistant_data
 
 
 def delete_assistant(assistant_id):

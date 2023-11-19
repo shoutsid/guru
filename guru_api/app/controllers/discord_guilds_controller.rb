@@ -37,6 +37,6 @@ class DiscordGuildsController < ApplicationController
   end
 
   def discord_guild_params
-    params.require(:discord_guild).permit(:id, :discord_id, :name, :member_count)
+    params.require(:discord_guild).permit(:discord_id, :name, :member_count)
   end
 end

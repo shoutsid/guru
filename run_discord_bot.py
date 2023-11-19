@@ -202,7 +202,6 @@ async def print_channels_to_console(ctx):
 async def test(ctx):
     thread = find_or_create_open_ai_thread(ctx.author)
     await ctx.send(f"Thread: {thread}")
-    # user_agent, teachable_agent = create_agents(ctx.message)
 
 # =========== EVENTS
 
@@ -245,15 +244,13 @@ async def on_guild_available(guild):
             "member_count": guild.member_count,
         }
         create_guild(guild_data)
-        logging.info("Created guild")
-        # GUILDS.append(response)
+        logging.info("Sent guild create event")
     else:
         logging.info("Found guild")
         # update guild
         logging.info("Updating guild")
         update_guild(guild.id, guild_data)
-        logging.info("Updated guild")
-        # GUILDS.append(response)
+        logging.info("Sent guild update event")
 
     # find or create channels
     for channel in guild.text_channels:
@@ -288,14 +285,12 @@ async def on_channel_available(channel):
 
     if response is None:
         logging.info("No channel found, creating a channel")
-        response = create_channel(channel_data)
-        logging.info("Created channel: %s", response)
-        CHANNELS.append(response)
+        create_channel(channel_data)
+        logging.info("Sent Channel Creation Event")
     else:
         logging.info("Found channel, updating it")
-        response = update_channel(channel.id, channel_data)
-        logging.info("Updated channel: %s", response)
-        CHANNELS.append(response)
+        update_channel(channel.id, channel_data)
+        logging.info("Sent Channel Update Event")
 
     # find or create messages
     async for message in channel.history():
@@ -500,28 +495,6 @@ async def send_message_in_paragraphs(message, content):
 
 MAX_MESSAGES = 10
 
-
-async def a_find_or_create_open_ai_thread(thread_name: str):
-    return find_or_create_open_ai_thread(thread_name)
-
-def find_or_create_open_ai_thread(thread_name: str):
-    # find thread on open ai api and create if not found
-    _threads = list_open_ai_thread()
-    thread = None
-    for t in _threads:
-        if t["name"] == thread_name:
-            thread = t
-            break
-
-    if thread is None:
-        thread = create_open_ai_thread(
-            {
-                "name": thread_name.name,
-            }
-        )
-
-    return thread
-
 @DISCORD_BOT.event
 async def on_message(message):
     # Record the message
@@ -539,17 +512,17 @@ async def on_message(message):
     if isinstance(message.channel, discord.DMChannel):
         logging.info("Received a DM from %s", message.author)
         logging.info("Creating agent for %s", message.author)
-        thread = find_or_create_open_ai_thread(message.author)
+        # thread = find_or_create_open_ai_thread(message.author)
         user_agent, teachable_agent = create_agents(message)
 
-        threads = teachable_agent._openai_threads.copy()
-        threads[user_agent] = thread
-        teachable_agent._openai_threads = threads
-        data = {
-            "external_id": thread.id,
-            "metadata": thread.metadata,
-        }
-        DISCORD_BOT.dispatch("handle_openai_thread", data)
+        # threads = teachable_agent._openai_threads.copy()
+        # threads[user_agent] = thread
+        # teachable_agent._openai_threads = threads
+        # data = {
+        #     "external_id": thread.id,
+        #     "metadata": thread.metadata,
+        # }
+        # DISCORD_BOT.dispatch("handle_openai_thread", data)
 
         messages = await message.channel.history().flatten()
 
@@ -559,36 +532,10 @@ async def on_message(message):
             oai_message = {'content': msg.content, 'role': role}
             handle_role_message(role, teachable_agent, user_agent, oai_message)
 
-        assistant_id = teachable_agent.assistant_id
-        true_assistant = teachable_agent._openai_assistant
-        assistant_data = {
-            "external_id": assistant_id,
-            "name": true_assistant.name,
-            "description": true_assistant.description,
-            "model": true_assistant.model,
-            "instructions": true_assistant.instructions,
-            "tools": [{"type": "code_interpreter"}, {"type": "retrieval"}],
-            "file_ids": true_assistant.file_ids,
-            "metadata": true_assistant.metadata,
-        }
-
-        response = get_assistant(assistant_id)
-
-        if response is None:
-            logging.info("No assistant found, creating a new one")
-            response = create_assistant(assistant_data)
-            logging.info("Created OpenAI Assistant: %s", response)
-            OPEN_AI_ASSISTANTS.append(response)
-        else:
-            logging.info("Found assistant, updating it")
-            response = update_assistant(assistant_id, assistant_data)
-            logging.info("Updated OpenAI Assistant: %s", response)
-            OPEN_AI_ASSISTANTS.append(response)
-
         await user_agent.a_initiate_chat(teachable_agent, message=message.content, clear_history=False)
         last_message = teachable_agent.last_message(user_agent)
 
-        process_openai_messages(teachable_agent, thread)
+        # process_openai_messages(teachable_agent, thread)
 
         await send_message_in_paragraphs(message, last_message["content"])
 

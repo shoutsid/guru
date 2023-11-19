@@ -2,6 +2,9 @@
 
 class DiscordMessageConsumer < ApplicationConsumer
   def consume
-    DiscordMessage.upsert_all messages.payloads
+    messages.payloads.each do |payload|
+      Rails.logger.debug("DiscordMessageConsumer: #{payload}")
+      DiscordMessage.upsert payload
+    end
   end
 end

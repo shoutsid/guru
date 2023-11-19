@@ -1,5 +1,5 @@
+from .kafka.producer import trigger_to_topic
 from .utils import BASE_URL, SESSION, requests
-
 
 def list_messages():
     try:
@@ -23,29 +23,14 @@ def get_message(message_id):
         return None
 
 
+@trigger_to_topic('open_ai_message')
 def create_message(message_data):
-    try:
-        url = f"{BASE_URL}/open_ai_messages.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.post(url, json=message_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while creating a message: {e}')
-        return None
+    return message_data
 
 
+@trigger_to_topic('open_ai_message')
 def update_message(message_id, message_data):
-    try:
-        url = f"{BASE_URL}/open_ai_messages/{message_id}.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.put(url, json=message_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while updating a message: {e}')
-        return None
-
+    return message_data
 
 def delete_message(message_id):
     try:

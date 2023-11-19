@@ -37,6 +37,6 @@ class DiscordMessagesController < ApplicationController
   end
 
   def discord_message_params
-    params.require(:discord_message).permit(:id, :discord_id, :content, :author_id, :channel_id, :guild_id)
+    params.require(:discord_message).permit(:discord_id, :content, :author_id, :channel_id, :guild_id)
   end
 end

@@ -36,6 +36,6 @@ class DiscordChannelsController < ApplicationController
   end
 
   def discord_channel_params
-    params.require(:discord_channel).permit(:id, :discord_id, :name, :type, :position, :topic, :guild_id)
+    params.require(:discord_channel).permit(:discord_id, :name, :type, :position, :topic, :guild_id)
   end
 end

@@ -1,3 +1,4 @@
+from .kafka.producer import trigger_to_topic
 from .utils import BASE_URL, SESSION, requests
 
 
@@ -23,29 +24,14 @@ def get_thread(thread_id):
         return None
 
 
+@trigger_to_topic('open_ai_thread')
 def create_thread(thread_data):
-    try:
-        url = f"{BASE_URL}/open_ai_threads.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.post(url, json=thread_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while creating a thread: {e}')
-        return None
+    return thread_data
 
 
+@trigger_to_topic('open_ai_thread')
 def update_thread(thread_id, thread_data):
-    try:
-        url = f"{BASE_URL}/open_ai_threads/{thread_id}.json"
-        headers = {"Content-Type": "application/json"}
-        response = SESSION.put(url, json=thread_data, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f'Error occurred while updating a thread: {e}')
-        return None
-
+    return thread_data
 
 def delete_thread(thread_id):
     try:

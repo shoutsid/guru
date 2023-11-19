@@ -20,7 +20,7 @@ class KarafkaApp < Karafka::App
 
   routes.draw do
     active_job_topic :default
-
+    # DISCORD
     topic :discord_guild do
       consumer DiscordGuildConsumer
     end
@@ -35,6 +35,17 @@ class KarafkaApp < Karafka::App
     end
     topic :discord_thread do
       consumer DiscordThreadConsumer
+    end
+
+    # OPEN AI
+    topic :open_ai_assistant do
+      consumer OpenAiAssistantConsumer
+    end
+    topic :open_ai_thread do
+      consumer OpenAiThreadConsumer
+    end
+    topic :open_ai_message do
+      consumer OpenAiMessageConsumer
     end
   end
 end

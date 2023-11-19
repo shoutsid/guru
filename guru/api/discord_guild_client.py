@@ -23,13 +23,11 @@ def get_guild(guild_id):
 
 @trigger_to_topic('discord_guild')
 def create_guild(guild_data):
-    guild_data["id"] = guild_data["discord_id"]
     return guild_data
 
 
 @trigger_to_topic('discord_guild')
 def update_guild(guild_id, guild_data):
-    guild_data['id'] = guild_id
     return guild_data
 
 

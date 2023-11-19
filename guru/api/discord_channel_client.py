@@ -24,13 +24,11 @@ def get_channel(channel_id):
 
 @trigger_to_topic('discord_channel')
 def create_channel(channel_data):
-    channel_data["id"] = channel_data["discord_id"]
     return channel_data
 
 
 @trigger_to_topic('discord_channel')
 def update_channel(channel_id, channel_data):
-    channel_data['id'] = channel_id
     return channel_data
 
 def delete_channel(channel_id):

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from guru.api.open_ai_assistant_client import get_assistant, create_assistant, update_assistant
 import json
 import time
 import logging
@@ -49,11 +50,6 @@ if not logger.handlers:
     _ch = logging.StreamHandler(stream=sys.stdout)
     _ch.setFormatter(logger_formatter)
     logger.addHandler(_ch)
-
-# from townhall.db.agent import Agent as AgentModel
-# from townhall.db.utils import Session, SQL_ENGINE
-
-# session = Session(SQL_ENGINE)
 
 class OpenAIWrapper:
     """A wrapper class for openai client."""
@@ -396,13 +392,8 @@ class GPTAssistantAgent(ConversableAgent):
             logger.warning("GPT Assistant only supports one OpenAI client. Using the first client in the list.")
         self._openai_client = oai_wrapper._clients[0]
 
-        # retrieve an existing agent
-        # db_agent = session.get(AgentModel, db_agent_id)
-        # if db_agent is None:
-        #     raise ValueError(f"Agent with id {db_agent_id} does not exist.")
-
+        # Do we bring the query to guru into the agent?
         openai_assistant_id = llm_config.get("assistant_id", None)
-        # openai_assistant_id = db_agent.openai_id if db_agent else None
 
         if openai_assistant_id is None:
             # create a new assistant
@@ -417,10 +408,6 @@ class GPTAssistantAgent(ConversableAgent):
                 tools=llm_config.get("tools", [{"type": "code_interpreter"}, {"type": "retrieval"}]),
                 model=llm_config.get("model", "gpt-4-1106-preview"),
             )
-            # update the agent with the assistant id
-            # db_agent.openai_id = self._openai_assistant.id
-            # session.commit()
-            # session.refresh(db_agent)
         else:
             # retrieve an existing assistant
             self._openai_assistant = self._openai_client.beta.assistants.retrieve(openai_assistant_id)
@@ -438,6 +425,7 @@ class GPTAssistantAgent(ConversableAgent):
                     assistant_id=openai_assistant_id,
                     instructions=instructions,
                 )
+
             else:
                 logger.warning(
                     "overwrite_instructions is False. Provided instructions will be used without permanently modifying the assistant in the API."
@@ -449,6 +437,28 @@ class GPTAssistantAgent(ConversableAgent):
             human_input_mode="NEVER",
             llm_config=llm_config,
         )
+
+        assistant_data = {
+            "external_id": self._openai_assistant.id,
+            "name": self._openai_assistant.name,
+            "description": self._openai_assistant.description,
+            "model": self._openai_assistant.model,
+            "instructions": self._openai_assistant.instructions,
+            "tools": [{"type": "code_interpreter"}, {"type": "retrieval"}],
+            "file_ids": self._openai_assistant.file_ids,
+            "metadata": self._openai_assistant.metadata,
+        }
+        existing_guru_assistant = get_assistant(self._openai_assistant.id)
+        if existing_guru_assistant is None:
+            logging.info("No assistant found, creating a new one")
+            logging.info("Assistant data: %s", assistant_data)
+            create_assistant(assistant_data)
+            logging.info("Sent assistant create event")
+        else:
+            logging.info("Found assistant, updating it")
+            logging.info("Assistant data: %s", assistant_data)
+            update_assistant(self._openai_assistant.id, assistant_data)
+            logging.info("Sent assistant update event")
 
         # lazly create thread
         self._openai_threads = {}

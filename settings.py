@@ -9,7 +9,7 @@ if "OPENAI_API_KEY" not in os.environ:
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 GPT3_5_TURBO_0613 = "gpt-3.5-turbo"
-GPT4 = "gpt-4"
+GPT4 = "gpt-4-1106-preview"
 VICUNA_7B_V1_5 = "vicuna-7b-v1.5"
 
 if "GPT4" in os.environ:

@@ -36,6 +36,6 @@ class DiscordThreadsController < ApplicationController
   end
 
   def discord_thread_params
-    params.require(:discord_thread).permit(:id, :discord_id, :name, :type, :owner_id, :parent_id, :archived, :auto_archive_duration)
+    params.require(:discord_thread).permit(:discord_id, :name, :type, :owner_id, :parent_id, :archived, :auto_archive_duration)
   end
 end

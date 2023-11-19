@@ -36,6 +36,6 @@ class DiscordUsersController < ApplicationController
   end
 
   def discord_user_params
-    params.require(:discord_user).permit(:id, :discord_id, :name, :discriminator, :avatar, :bot, :system)
+    params.require(:discord_user).permit(:discord_id, :name, :discriminator, :avatar, :bot, :system)
   end
 end

@@ -53,7 +53,7 @@ class OpenAiMessagesController < ApplicationController
   private
 
   def set_open_ai_message
-    @open_ai_message = OpenAiMessage.find_by!(external_id: params[:id])
+    @open_ai_message = OpenAiMessage.find(params[:id])
   end
 
   def open_ai_message_params

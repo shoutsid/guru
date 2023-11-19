@@ -32,7 +32,7 @@ class OpenAiAssistantsController < ApplicationController
 
   private
   def set_open_ai_assistant
-    @open_ai_assistant = OpenAiAssistant.find(external_id: params[:id])
+    @open_ai_assistant = OpenAiAssistant.find(params[:id])
   end
 
   def open_ai_assistant_params
