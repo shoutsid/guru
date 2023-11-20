@@ -1,7 +1,7 @@
 from __future__ import annotations
 from guru.api.open_ai_assistant_client import get_assistant, create_assistant, update_assistant
 from guru.api.open_ai_thread_client import get_thread, create_thread, update_thread
-from guru.api.open_ai_message_client import get_message, create_message, update_message
+from guru.api.open_ai_message_client import list_messages, get_message, create_message, update_message
 import json
 import time
 import logging
@@ -465,9 +465,16 @@ class GPTAssistantAgent(ConversableAgent):
         # lazly create thread
         self._openai_threads = {}
 
-        # TODO: Replace unread_index with lookup to guru
-        self._unread_index = defaultdict(int)
         self.register_reply(Agent, GPTAssistantAgent._invoke_assistant)
+
+    def insert_oai_messages(self, sender: ConversableAgent, oai_message: dict):
+        if oai_message['role'] == 'assistant':
+            self._oai_messages[self].append(oai_message)
+            sender._oai_messages[self].append(oai_message)
+        else:
+            oai_message['role'] = 'user'
+            self._oai_messages[sender].append(oai_message)
+            sender._oai_messages[sender].append(oai_message)
 
     def _invoke_assistant(
         self,
@@ -486,11 +493,10 @@ class GPTAssistantAgent(ConversableAgent):
         Returns:
             A tuple containing a boolean indicating success and the assistant's reply.
         """
+        logging.info("Invoking assistant")
+        logging.info("Messages: %s", messages)
+        logging.info("Sender: %s", sender)
 
-        if messages is None:
-            messages = self._oai_messages[sender]
-        unread_index = self._unread_index[sender] or 0
-        pending_messages = messages[unread_index:]
 
         if self._openai_threads.get(sender, None) is None:
             self._openai_threads[sender] = self._openai_client.beta.threads.create(
@@ -513,10 +519,11 @@ class GPTAssistantAgent(ConversableAgent):
                 update_thread(self._openai_threads[sender].id, thread_data)
                 logging.info("Sent thread update event")
 
-
         assistant_thread = self._openai_threads[sender]
-        # Process each unread message
-        for message in pending_messages:
+        # Process each "unread" message
+        for message in messages:
+            logging.info("Creating message on open ai")
+            logging.info("Message: %s", message)
             msg = self._openai_client.beta.threads.messages.create(
                 thread_id=assistant_thread.id,
                 content=message["content"],
@@ -524,7 +531,6 @@ class GPTAssistantAgent(ConversableAgent):
             )
 
             for content in msg.content:
-
                 # TODO: Add other content types
                 if content.type == "text":
                     # create guru message here
@@ -543,15 +549,52 @@ class GPTAssistantAgent(ConversableAgent):
             existing_guru_message = get_message(msg.id)
             if existing_guru_message is None:
                 logging.info("No message found, creating a new one")
+
+        # get open ai messages from guru
+        guru_open_ai_messages = list_messages(
+            thread_id=self._openai_threads[sender].id)
+        # get open ai messages
+        open_ai_messages = self._openai_client.beta.threads.messages.list(
+            self._openai_threads[sender].id, order="asc")
+
+        for m in guru_open_ai_messages:
+            logging.info("Inserting message: %s", m)
+            self.insert_oai_messages(sender, m)
+
+        # if open ai has more messages than guru, create the missing messages
+        for open_ai_message in open_ai_messages:
+            if open_ai_message.id not in [guru_open_ai_thread["external_id"] for guru_open_ai_thread in guru_open_ai_messages]:
+                # create message on guru
+                message_data = {
+                    "external_id": open_ai_message.id,
+                    "thread_id": open_ai_message.thread_id,
+                    "content": open_ai_message.content[0].text.value,
+                    "role": open_ai_message.role,
+                    "metadata": open_ai_message.metadata,
+                }
+                logging.info(
+                    "No message found, creating a new one")
                 logging.info("Message data: %s", message_data)
                 create_message(message_data)
                 logging.info("Sent message create event")
-            else:
-                logging.info("Found message, updating it")
-                logging.info("Message data: %s", message_data)
-                update_message(message["id"], message_data)
-                logging.info("Sent message update event")
 
+        # if guru has more messages than open ai, create the missing messages
+        # Process each "unread" message
+        for guru_open_ai_message in guru_open_ai_messages:
+            if guru_open_ai_message["external_id"] not in [open_ai_message.id for open_ai_message in open_ai_messages]:
+                logging.info(
+                    "No message found, creating a new one")
+                # create message on open ai
+                msg = self._openai_client.beta.threads.messages.create(
+                    thread_id=self._openai_threads[sender].id,
+                    role=guru_open_ai_message["role"],
+                    content=guru_open_ai_message["content"],
+                    metadata=guru_open_ai_message["metadata"],
+                )
+                logging.info("Message data: %s", msg)
+                logging.info("Sent message create event")
+
+        assistant_thread = self._openai_threads[sender]
         # Create a new run to get responses from the assistant
         run = self._openai_client.beta.threads.runs.create(
             thread_id=assistant_thread.id,
@@ -567,43 +610,15 @@ class GPTAssistantAgent(ConversableAgent):
             "role": run_response_messages[-1]["role"],
             "content": "",
         }
-        for message in run_response_messages:
+        for m in run_response_messages:
             # just logging or do something with the intermediate messages?
             # if current response is not empty and there is more, append new lines
             if len(response["content"]) > 0:
                 response["content"] += "\n\n"
-            response["content"] += message["content"]
+            response["content"] += m["content"]
 
 
-        self._unread_index[sender] = len(self._oai_messages[sender]) + 1
         return True, response
-
-    def analyze_conversation(self, agent: Optional[Agent] = None):
-        nlp = spacy.load("en_core_web_sm")
-        analyzer = SentimentIntensityAnalyzer()
-
-        messages = self._oai_messages.get(agent, [])
-        conversation_analysis = {
-            "topics": {},
-            "entities": {},
-            "opinions": {}
-        }
-
-        for message in messages:
-            # NLP processing
-            doc = nlp(message["content"])
-
-            # Named Entity Recognition
-            for ent in doc.ents:
-                conversation_analysis["entities"][ent.text] = ent.label_
-
-            # Opinion Mining and Sentiment Analysis
-            for sent in doc.sents:
-                sentiment_score = analyzer.polarity_scores(sent.text)["compound"]
-                conversation_analysis["opinions"][sent.text] = sentiment_score
-
-        return conversation_analysis
-
 
     def _get_run_response(self, thread, run):
         """
@@ -748,7 +763,6 @@ class GPTAssistantAgent(ConversableAgent):
             self._openai_client.beta.threads.delete(thread.id)
         self._openai_threads = {}
         # Clear the record of unread messages
-        self._unread_index.clear()
 
     def clear_history(self, agent: Optional[Agent] = None):
         """Clear the chat history of the agent.
@@ -765,7 +779,33 @@ class GPTAssistantAgent(ConversableAgent):
             # TODO: Delete thread on guru
             self._openai_client.beta.threads.delete(thread.id)
             self._openai_threads.pop(agent)
-            self._unread_index[agent] = 0
+
+    def analyze_conversation(self, agent: Optional[Agent] = None):
+        nlp = spacy.load("en_core_web_sm")
+        analyzer = SentimentIntensityAnalyzer()
+
+        messages = self._oai_messages.get(agent, [])
+        conversation_analysis = {
+            "topics": {},
+            "entities": {},
+            "opinions": {}
+        }
+
+        for message in messages:
+            # NLP processing
+            doc = nlp(message["content"])
+
+            # Named Entity Recognition
+            for ent in doc.ents:
+                conversation_analysis["entities"][ent.text] = ent.label_
+
+            # Opinion Mining and Sentiment Analysis
+            for sent in doc.sents:
+                sentiment_score = analyzer.polarity_scores(sent.text)[
+                    "compound"]
+                conversation_analysis["opinions"][sent.text] = sentiment_score
+
+        return conversation_analysis
 
     def pretty_print_thread(self, thread):
         """Pretty print the thread."""

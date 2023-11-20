@@ -563,12 +563,12 @@ async def on_message(message):
         # or continue to take from discord
         #
         # Below will insert messages into the agents
-        messages = await message.channel.history().flatten()
-        for msg in messages[:MAX_MESSAGES]:
-            role = 'user' if msg.author != DISCORD_BOT.user else 'assistant'
-            logging.info("Changing role: %s", role)
-            oai_message = {'content': msg.content, 'role': role}
-            handle_role_message(role, teachable_agent, user_agent, oai_message)
+        # messages = await message.channel.history().flatten()
+        # for msg in messages[:MAX_MESSAGES]:
+        #     role = 'user' if msg.author != DISCORD_BOT.user else 'assistant'
+        #     logging.info("Changing role: %s", role)
+        #     oai_message = {'content': msg.content, 'role': role}
+        #     handle_role_message(role, teachable_agent, user_agent, oai_message)
 
         await user_agent.a_initiate_chat(teachable_agent, message=message.content, clear_history=False)
         last_message = teachable_agent.last_message(user_agent)

@@ -1,9 +1,12 @@
 from .kafka.producer import trigger_to_topic
 from .utils import BASE_URL, SESSION, requests
 
-def list_messages():
+
+def list_messages(thread_id=None):
     try:
         url = f"{BASE_URL}/open_ai_messages.json"
+        if thread_id:
+            url = f"{url}?thread_id={thread_id}"
         response = SESSION.get(url)
         response.raise_for_status()
         return response.json()

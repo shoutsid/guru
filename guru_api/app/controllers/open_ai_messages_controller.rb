@@ -3,6 +3,12 @@ class OpenAiMessagesController < ApplicationController
 
   def index
     @open_ai_messages = OpenAiMessage.all
+    if params[:thread_id]
+      @open_ai_messages = @open_ai_messages.where(thread_id: params[:thread_id])
+    end
+    if params[:assistant_id]
+      @open_ai_messages = @open_ai_messages.where(assistant_id: params[:assistant_id])
+    end
   end
 
   def show
