@@ -524,31 +524,29 @@ class GPTAssistantAgent(ConversableAgent):
         for message in messages:
             logging.info("Creating message on open ai")
             logging.info("Message: %s", message)
-            msg = self._openai_client.beta.threads.messages.create(
-                thread_id=assistant_thread.id,
-                content=message["content"],
-                role=message["role"],
-            )
+            role = "user" if message["role"] == "user" else "assistant"
+            if role == "user":
+                msg = self._openai_client.beta.threads.messages.create(
+                    thread_id=assistant_thread.id,
+                    content=message["content"],
+                    role=role,
+                )
 
-            for content in msg.content:
-                # TODO: Add other content types
-                if content.type == "text":
-                    # create guru message here
-                    message_data = {
-                        "external_id": msg.id,
-                        "thread_id": msg.thread_id,
-                        "content": content.text.value,
-                        "role": msg.role,
-                        "metadata": msg.metadata,
-                    }
-                    logging.info(
-                        "Received message, sending message create event")
-                    create_message(message_data)
-                    logging.info("Sent message create event")
-
-            existing_guru_message = get_message(msg.id)
-            if existing_guru_message is None:
-                logging.info("No message found, creating a new one")
+                for content in msg.content:
+                    # TODO: Add other content types
+                    if content.type == "text":
+                        # create guru message here
+                        message_data = {
+                            "external_id": msg.id,
+                            "thread_id": msg.thread_id,
+                            "content": content.text.value,
+                            "role": role,
+                            "metadata": msg.metadata,
+                        }
+                        logging.info(
+                            "Received message, sending message create event")
+                        create_message(message_data)
+                        logging.info("Sent message create event")
 
         # get open ai messages from guru
         guru_open_ai_messages = list_messages(
@@ -557,26 +555,31 @@ class GPTAssistantAgent(ConversableAgent):
         open_ai_messages = self._openai_client.beta.threads.messages.list(
             self._openai_threads[sender].id, order="asc")
 
-        for m in guru_open_ai_messages:
-            logging.info("Inserting message: %s", m)
-            self.insert_oai_messages(sender, m)
+        # for m in guru_open_ai_messages:
+        #     # :fingers-crossed: hoping this isn't creating the whole chain in the same thread for every message xD
+        #     logging.info("Inserting message: %s", m)
+        #     chat_msg = {
+        #         "role": m["role"],
+        #         "content": m["content"],
+        #     }
+        #     self.insert_oai_messages(sender, chat_msg)
 
         # if open ai has more messages than guru, create the missing messages
         for open_ai_message in open_ai_messages:
             if open_ai_message.id not in [guru_open_ai_thread["external_id"] for guru_open_ai_thread in guru_open_ai_messages]:
-                # create message on guru
-                message_data = {
-                    "external_id": open_ai_message.id,
-                    "thread_id": open_ai_message.thread_id,
-                    "content": open_ai_message.content[0].text.value,
-                    "role": open_ai_message.role,
-                    "metadata": open_ai_message.metadata,
-                }
-                logging.info(
-                    "No message found, creating a new one")
-                logging.info("Message data: %s", message_data)
-                create_message(message_data)
-                logging.info("Sent message create event")
+                if open_ai_message.content[0].type == "text":
+                    message_data = {
+                        "external_id": open_ai_message.id,
+                        "thread_id": open_ai_message.thread_id,
+                        "content": open_ai_message.content[0].text.value,
+                        "role": open_ai_message.role,
+                        "metadata": open_ai_message.metadata,
+                    }
+                    logging.info(
+                        "No message found, creating a new one")
+                    logging.info("Message data: %s", message_data)
+                    create_message(message_data)
+                    logging.info("Sent message create event")
 
         # if guru has more messages than open ai, create the missing messages
         # Process each "unread" message
@@ -587,7 +590,7 @@ class GPTAssistantAgent(ConversableAgent):
                 # create message on open ai
                 msg = self._openai_client.beta.threads.messages.create(
                     thread_id=self._openai_threads[sender].id,
-                    role=guru_open_ai_message["role"],
+                    role=guru_open_ai_message.role,
                     content=guru_open_ai_message["content"],
                     metadata=guru_open_ai_message["metadata"],
                 )
@@ -644,7 +647,7 @@ class GPTAssistantAgent(ConversableAgent):
                                 message_data = {
                                     "external_id": msg.id,
                                     "thread_id": msg.thread_id,
-                                    "content": content.text.value,
+                                    "content": self._format_assistant_message(content.text),
                                     "role": msg.role,
                                     "metadata": msg.metadata,
                                 }
@@ -654,7 +657,8 @@ class GPTAssistantAgent(ConversableAgent):
                                 logging.info("Sent message create event")
 
                                 new_messages.append(
-                                    {"role": msg.role, "content": self._format_assistant_message(content.text)}
+                                    {"role": msg.role, "content": self._format_assistant_message(
+                                        content.text)}
                                 )
                             elif content.type == "image_file":
                                 new_messages.append(

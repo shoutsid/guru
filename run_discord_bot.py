@@ -4,6 +4,9 @@ TODO: Send back the audio to the channel along with the text, so that the user c
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
 
+import autogen
+from langchain.utilities.sql_database import SQLDatabase
+from langchain.agents.agent_toolkits import SparkSQLToolkit
 from datetime import datetime
 from openai.types.beta.thread import Thread as OpenAIThreadBase
 from guru.api.kafka.producer import trigger_to_topic
@@ -39,11 +42,12 @@ FUNCTIONS_MAP = {}
 FUNCTIONS_CONFIG = []
 # 'ddg-search', 'requests_all', 'terminal', 'arxiv', 'wikipedia', 'sleep'
 LLM_CONFIG = {
-    "request_timeout": 180,
+    # Use Cache isn't a thing now?
+    # "use_cache": True,  # Use False to explore LLM non-determinism.
+    # "request_timeout": 180,# ????? Why has this all of a sudden not allowed 2023-11-20 01:38:35 TypeError: create() got an unexpected keyword argument 'request_timeout'
     "config_list": CONFIG_LIST,
-    "use_cache": True,  # Use False to explore LLM non-determinism.
-    "retry_wait_time": 0.5,
-    "max_retry_period": 360,
+    # "retry_wait_time": 0.5,
+    # "max_retry_period": 360,
 }
 if TOOL_NAMES.__len__() > 0:
     LLM_CONFIG["functions"] = FUNCTIONS_CONFIG
@@ -56,12 +60,29 @@ global IN_VC
 IN_VC = False
 
 # START: =========== AI Related Functions
-def generate_user_agent(name):
-    agent = UserAgent(
-        name=name,
-        max_consecutive_auto_reply=0,
-        human_input_mode="NEVER",
-    )
+
+
+def generate_user_agent(name, llm_config=None, code_execution=False):
+    if code_execution:
+        agent = UserAgent(
+            name=name,
+            max_consecutive_auto_reply=1,
+            human_input_mode="NEVER",
+            llm_config=llm_config,
+            is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
+            code_execution_config={
+                "work_dir": "agent_workspace",
+                "use_docker": True,
+            }
+        )
+    else:
+        agent = UserAgent(
+            name=name,
+            max_consecutive_auto_reply=0,
+            human_input_mode="NEVER",
+            llm_config=llm_config,
+            is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
+        )
     return agent
 
 
@@ -74,7 +95,8 @@ def generate_teachable_agent(name):
     return agent
 # END: =========== AI Related Functions
 
-def generate_llm_config(tool):
+
+def generate_function_schema(tool):
     """
     Generate a function schema for a LangChain tool.
     """
@@ -97,7 +119,7 @@ for tool in TOOLS:
     # pylint: disable=protected-access
     FUNCTIONS_MAP[tool.name] = tool._run
     # pylint: enable=protected-access
-    FUNCTIONS_CONFIG.append(generate_llm_config(tool))
+    FUNCTIONS_CONFIG.append(generate_function_schema(tool))
 
 if FUNCTIONS_MAP.__len__() > 0:
     USER_AGENT.register_function(
@@ -107,7 +129,7 @@ if FUNCTIONS_MAP.__len__() > 0:
 def add_function(name, description, func):
     FUNCTIONS_MAP[name] = func
     tool = Tool(name=name, description=description, func=func)
-    FUNCTIONS_CONFIG.append(generate_llm_config(tool))
+    FUNCTIONS_CONFIG.append(generate_function_schema(tool))
 
 # =========== COMMANDS
 
@@ -414,12 +436,22 @@ async def on_handle_openai_message(message_data):
         logging.info("Updated OpenAI Message: %s", response)
 
 
+def run_postgres_query(query):
+    database_uri = "postgresql://guru_api:@db/guru_api_production"
+    postgres_db = SQLDatabase.from_uri(database_uri)
+    return postgres_db.run(query)
+
+
+
 def find_or_create_agents(author):
     user_agent_name = f"discord_member_{author.id}"
     teachable_agent_name = f"discord_assistant_{author.id}"
-    user_agent = generate_user_agent(user_agent_name)
     current_message = DEFAULT_SYSTEM_MESSAGE
     config = LLM_CONFIG.copy()
+
+    user_agent = generate_user_agent(name=user_agent_name, llm_config=config)
+    user_execution_agent = generate_user_agent(
+        name=f"{user_agent_name}_execution", llm_config=config, code_execution=True)
 
     assistants = list_assistants() or []
 
@@ -434,7 +466,12 @@ def find_or_create_agents(author):
         instructions=current_message
     )
 
-    return user_agent, teachable_agent
+    groupchat = autogen.GroupChat(
+        agents=[user_agent, teachable_agent, user_execution_agent], messages=[], max_round=10)
+    manager = autogen.GroupChatManager(
+        groupchat=groupchat, llm_config=LLM_CONFIG)
+
+    return manager, groupchat, user_agent, user_execution_agent, teachable_agent
 
 
 def handle_role_message(role, teachable_agent, user_agent, oai_message):
@@ -445,32 +482,6 @@ def handle_role_message(role, teachable_agent, user_agent, oai_message):
         oai_message['role'] = 'user'
         teachable_agent._oai_messages[user_agent].append(oai_message)
         user_agent._oai_messages[user_agent].append(oai_message)
-
-
-def process_openai_messages(teachable_agent, thread):
-    response_messages = teachable_agent._openai_client.beta.threads.messages.list(
-        thread.id, order="asc")
-
-    for oai_message in response_messages:
-        content = ""
-        logging.info("First Content: %s", oai_message.content)
-        for c in oai_message.content:
-            logging.info("In loop Content: %s", c)
-            content += c.text.value
-
-        logging.info("Content: %s", content)
-        data = {
-            "external_id": oai_message.id,
-            "thread_id": thread.id,
-            "role": oai_message.role,
-            "content": content,
-            "file_ids": oai_message.file_ids,
-            "assistant_id": oai_message.assistant_id,
-            "run_id": oai_message.run_id,
-            "metadata": oai_message.metadata,
-        }
-        DISCORD_BOT.dispatch("handle_openai_message", data)
-
 
 async def send_message_in_paragraphs(message, content):
     if len(content) > 1024:
@@ -495,6 +506,7 @@ def find_open_ai_thread(user):
     threads = list_open_ai_thread()
     logging.info("Threads: %s", threads)
     logging.info("Finding OpenAI Thread for %s", user.id)
+    found_threads = []
     for t in threads:
 
         logging.info("Thread: %s", t)
@@ -503,20 +515,28 @@ def find_open_ai_thread(user):
 
             if str(origin["originable_id"]) == str(user.id) and str(origin["originable_type"]) == str("DiscordUser"):
                 logging.info("Found thread %s", t)
-                # Parse the string to a datetime object from guru/rails
-                dt = datetime.strptime(
-                    t["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ')
-                # Convert the datetime object to a Unix timestamp required by openai
-                timestamp = int(time.mktime(dt.timetuple()))
-                thread_data = {
-                    "id": t["external_id"],
-                    "metadata": t["metadata"],
-                    "created_at": timestamp,
-                    "object": "thread"
-                }
-                logging.info("Thread Data: %s", thread_data)
-                thread = OpenAIThreadBase(**thread_data)
+                found_threads.append(t)
                 break
+
+    # sort found_threads by created_at, grab the latest one
+    if len(found_threads) > 0:
+        found_threads.sort(key=lambda x: x["created_at"], reverse=True)
+        thread = found_threads[0]
+
+        # Convert the datetime object to a Unix timestamp required by openai
+        # Parse the string to a datetime object from guru/rails
+        dt = datetime.strptime(
+            t["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ')
+        timestamp = int(time.mktime(dt.timetuple()))
+        thread_data = {
+            "id": thread["external_id"],
+            "metadata": thread["metadata"],
+            "created_at": timestamp,
+            "object": "thread"
+        }
+        logging.info("Thread Data: %s", thread_data)
+        thread = OpenAIThreadBase(**thread_data)
+
     return thread
 
 
@@ -548,33 +568,25 @@ async def on_message(message):
         logging.info("Received a DM from %s", message.author)
         logging.info("Creating agent for %s", message.author)
 
-        user_agent, teachable_agent = find_or_create_agents(message.author)
+        manager, groupchat, user_agent, user_execution_agent, teachable_agent = find_or_create_agents(
+            message.author)
 
         # insert our existing thread from the guru into the teachable_agent
         thread = find_open_ai_thread(message.author)
         if thread is not None:
             logging.info("Found thread for %s", message.author)
-            teachable_agent._openai_threads[user_agent] = thread
+            teachable_agent._openai_threads[manager] = thread
         else:
             logging.info("No thread found for %s", message.author)
 
-        # TODO: max messages needs to be adjustable or removed all together
-        # WE can choose to base everything from our guru stored data now
-        # or continue to take from discord
-        #
-        # Below will insert messages into the agents
-        # messages = await message.channel.history().flatten()
-        # for msg in messages[:MAX_MESSAGES]:
-        #     role = 'user' if msg.author != DISCORD_BOT.user else 'assistant'
-        #     logging.info("Changing role: %s", role)
-        #     oai_message = {'content': msg.content, 'role': role}
-        #     handle_role_message(role, teachable_agent, user_agent, oai_message)
+        user_agent.initiate_chat(
+            manager, message=message.content, clear_history=False)
+        last_message = manager.last_message(user_agent)
 
-        await user_agent.a_initiate_chat(teachable_agent, message=message.content, clear_history=False)
-        last_message = teachable_agent.last_message(user_agent)
-
+        # ensure we can pickup the thread on next on_message invocation
+        # the teachable will have a thread back to the manager, so we grab that as the concept origin
         associate_concept_origin(concept_class="OpenAiThread", origin_class="DiscordUser",
-                                 conceptable_id=teachable_agent._openai_threads[user_agent].id, originable_id=message.author.id)
+                                 conceptable_id=teachable_agent._openai_threads[manager].id, originable_id=message.author.id)
 
         await send_message_in_paragraphs(message, last_message["content"])
 
