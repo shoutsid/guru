@@ -486,7 +486,9 @@ def handle_role_message(role, teachable_agent, user_agent, oai_message):
 async def send_message_in_paragraphs(message, content):
     if len(content) > 1024:
         logging.info("Found text %s in reply", content)
-        split = content.split("\n")
+        # take into consideration not every new line is a new paragraph
+        # We have contain backtick code blocks also.
+        split = content.split("\n\n")
         for _m in split:
             for i in range(0, len(_m), 1024):
                 index = split.index(_m)
