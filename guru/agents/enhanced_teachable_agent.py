@@ -2,6 +2,7 @@ from __future__ import annotations
 from guru.api.open_ai_assistant_client import get_assistant, create_assistant, update_assistant
 from guru.api.open_ai_thread_client import get_thread, create_thread, update_thread
 from guru.api.open_ai_message_client import list_messages, get_message, create_message, update_message
+import asyncio
 import json
 import time
 import logging
@@ -9,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import spacy
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
+from random import randrange
 
 nltk.download('vader_lexicon')
 nltk.download('punkt')
@@ -246,7 +248,9 @@ class OpenAIWrapper:
             # construct the create params
             params = self._construct_create_params(create_config, extra_kwargs)
             # get the cache_seed, filter_func and context
-            cache_seed = extra_kwargs.get("cache_seed", 41)
+
+            # use random seed if cache_seed is None
+            cache_seed = extra_kwargs.get("cache_seed", randrange(100_000_000))
             filter_func = extra_kwargs.get("filter_func")
             context = extra_kwargs.get("context")
             with diskcache.Cache(f"{self.cache_path_root}/{cache_seed}") as cache:
@@ -389,7 +393,11 @@ class GPTAssistantAgent(ConversableAgent):
             overwrite_instructions (bool): whether to overwrite the instructions of an existing assistant.
         """
         # Use AutoGen OpenAIWrapper to create a client
+        if llm_config is None:
+            llm_config = {}
+
         oai_wrapper = OpenAIWrapper(**llm_config)
+
         if len(oai_wrapper._clients) > 1:
             logger.warning("GPT Assistant only supports one OpenAI client. Using the first client in the list.")
         self._openai_client = oai_wrapper._clients[0]
@@ -476,6 +484,62 @@ class GPTAssistantAgent(ConversableAgent):
             self._oai_messages[sender].append(oai_message)
             sender._oai_messages[sender].append(oai_message)
 
+    async def get_open_ai_messages(self, sender):
+        guru_open_ai_messages = list_messages(
+            thread_id=self._openai_threads[sender].id)
+        open_ai_messages = self._openai_client.beta.threads.messages.list(
+            self._openai_threads[sender].id, order="asc")
+
+        open_ai_processed_message_ids = set()
+        guru_processed_message_ids = set()
+        open_ai_tasks = []
+        guru_tasks = []
+        for open_ai_message in open_ai_messages:
+            open_ai_tasks.append(
+                self.ensure_guru_is_caught_up(
+                    open_ai_message, open_ai_processed_message_ids, sender, guru_open_ai_messages)
+            )
+            # for guru_open_ai_message in guru_open_ai_messages:
+            #     guru_tasks.append(
+            #         self.create_message_on_open_ai(
+            #             guru_open_ai_message, guru_processed_message_ids, sender, open_ai_messages)
+            #     )
+        await asyncio.gather(*open_ai_tasks, *guru_tasks)
+
+    async def create_message_on_open_ai(self, guru_open_ai_message, processed_message_ids, sender, open_ai_message):
+        if guru_open_ai_message["external_id"] not in processed_message_ids:
+            if guru_open_ai_message["external_id"] not in [open_ai_message]:
+                logging.info(
+                    "No message found, creating a new one")
+                # create message on open ai
+                await self._openai_client.beta.threads.messages.create(
+                    thread_id=self._openai_threads[sender].id,
+                    role=guru_open_ai_message["role"],
+                    content=guru_open_ai_message["content"],
+                    metadata=guru_open_ai_message["metadata"],
+                )
+                processed_message_ids.add(guru_open_ai_message["external_id"])
+                logging.info("created message on openai")
+
+    async def ensure_guru_is_caught_up(self, open_ai_message, processed_message_ids, sender, guru_open_ai_message):
+        if open_ai_message.id not in processed_message_ids:
+            if open_ai_message.id not in [guru_open_ai_message]:
+                if open_ai_message.content[0].type == "text":
+                    message_data = {
+                        "external_id": open_ai_message.id,
+                        "thread_id": open_ai_message.thread_id,
+                        "content": open_ai_message.content[0].text.value,
+                        "role": open_ai_message.role,
+                        "metadata": open_ai_message.metadata,
+                    }
+                    logging.info("Creating a new message")
+                    # Assuming create_message is an asynchronous function
+                    create_message(message_data)
+                    processed_message_ids.add(open_ai_message.id)
+            else:
+                logging.info("Message already processed")
+
+
     def _invoke_assistant(
         self,
         messages: Optional[List[Dict]] = None,
@@ -548,54 +612,11 @@ class GPTAssistantAgent(ConversableAgent):
                         create_message(message_data)
                         logging.info("Sent message create event")
 
-        # get open ai messages from guru
-        guru_open_ai_messages = list_messages(
-            thread_id=self._openai_threads[sender].id)
-        # get open ai messages
-        open_ai_messages = self._openai_client.beta.threads.messages.list(
-            self._openai_threads[sender].id, order="asc")
-
-        # for m in guru_open_ai_messages:
-        #     # :fingers-crossed: hoping this isn't creating the whole chain in the same thread for every message xD
-        #     logging.info("Inserting message: %s", m)
-        #     chat_msg = {
-        #         "role": m["role"],
-        #         "content": m["content"],
-        #     }
-        #     self.insert_oai_messages(sender, chat_msg)
-
-        # if open ai has more messages than guru, create the missing messages
-        for open_ai_message in open_ai_messages:
-            if open_ai_message.id not in [guru_open_ai_thread["external_id"] for guru_open_ai_thread in guru_open_ai_messages]:
-                if open_ai_message.content[0].type == "text":
-                    message_data = {
-                        "external_id": open_ai_message.id,
-                        "thread_id": open_ai_message.thread_id,
-                        "content": open_ai_message.content[0].text.value,
-                        "role": open_ai_message.role,
-                        "metadata": open_ai_message.metadata,
-                    }
-                    logging.info(
-                        "No message found, creating a new one")
-                    logging.info("Message data: %s", message_data)
-                    create_message(message_data)
-                    logging.info("Sent message create event")
-
-        # if guru has more messages than open ai, create the missing messages
-        # Process each "unread" message
-        for guru_open_ai_message in guru_open_ai_messages:
-            if guru_open_ai_message["external_id"] not in [open_ai_message.id for open_ai_message in open_ai_messages]:
-                logging.info(
-                    "No message found, creating a new one")
-                # create message on open ai
-                msg = self._openai_client.beta.threads.messages.create(
-                    thread_id=self._openai_threads[sender].id,
-                    role=guru_open_ai_message.role,
-                    content=guru_open_ai_message["content"],
-                    metadata=guru_open_ai_message["metadata"],
-                )
-                logging.info("Message data: %s", msg)
-                logging.info("Sent message create event")
+        # # get open ai messages from guru
+        # loop = asyncio.get_event_loop()
+        # loop.create_task(
+        #     self.get_open_ai_messages(sender)
+        # )
 
         assistant_thread = self._openai_threads[sender]
         # Create a new run to get responses from the assistant

@@ -1,4 +1,4 @@
-version: '2.23'
+version: '3.4'
 
 services:
   db:
@@ -17,6 +17,45 @@ services:
       retries: 20
     ports:
       - "5432:5432"
+
+  weaviate:
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - '8080'
+      - --scheme
+      - http
+    image: semitechnologies/weaviate:1.22.4
+    ports:
+      - 8080:8080
+      - 50051:50051
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    restart: on-failure:0
+    environment:
+      BIND_INFERENCE_API: 'http://multi2vec-bind:8080'
+      RERANKER_INFERENCE_API: 'http://reranker-transformers:8080'
+      OPENAI_APIKEY: $OPENAI_APIKEY
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'multi2vec-bind'
+      ENABLE_MODULES: 'multi2vec-bind,ref2vec-centroid,generative-openai,reranker-transformers'
+      CLUSTER_HOSTNAME: 'node1'
+    depends_on:
+      - multi2vec-bind
+      - reranker-transformers
+
+  multi2vec-bind:
+    image: semitechnologies/multi2vec-bind:imagebind
+    environment:
+      ENABLE_CUDA: '0'
+
+  reranker-transformers:
+    image: semitechnologies/reranker-transformers:cross-encoder-ms-marco-MiniLM-L-6-v2
+    environment:
+      ENABLE_CUDA: '0'
 
   zookeeper:
     image: wurstmeister/zookeeper
@@ -69,8 +108,6 @@ services:
       - guru_api:guru_api
     env_file:
       - .env_discord_bot
-    volumes:
-      - .:/app
     command: python3 ./guru/api/kafka/consumer.py
 
   # Client for the Guru API
@@ -91,8 +128,6 @@ services:
       - guru_api:guru_api
     env_file:
       - .env_discord_bot
-    volumes:
-      - .:/app
     command: python3 run_discord_bot.py
 
   # This runs as it's in Production. Modify with caution.
@@ -109,7 +144,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./guru_api:/rails
       - guru_api_storage:/rails/storage/
     ports:
       - 3000:3000
@@ -142,7 +176,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./guru_api:/rails
       - guru_api_storage:/rails/storage/
     depends_on:
       db:
@@ -168,7 +201,6 @@ services:
       - .env
       - .env_karafka_web
     volumes:
-      - ./guru_api:/rails
       - guru_api_storage:/rails/storage/
     depends_on:
       db:
@@ -177,7 +209,7 @@ services:
         condition: service_healthy
       zookeeper:
         condition: service_healthy
-      guru_api: # never interacts but requires it to be up and complete topic creation before us.
+      guru_api:
         condition: service_healthy
     links:
       - db:db
@@ -186,4 +218,5 @@ services:
 
 volumes:
   guru_api_storage:
+  weaviate_data:
   db:

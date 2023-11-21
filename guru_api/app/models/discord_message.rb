@@ -1,5 +1,6 @@
 class DiscordMessage < ApplicationRecord
   include KafkaEventPublisher
+  include WeaviateVectorizable
 
   self.primary_key = 'discord_id'
   belongs_to :author, class_name: 'DiscordUser', foreign_key: 'author_id', primary_key: 'discord_id'

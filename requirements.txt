@@ -53,6 +53,9 @@ spacy==3.7.2
 
 # required for event machine with guru
 confluent-kafka==2.3.0
+weaviate-client>=3.11.0
+datasets
+apache-beam
 
 # hopefully we can get rid of the torch requirements
 # Used for conversational analysis

@@ -21,9 +21,10 @@ gem "ruby-openai", '~> 6.2.0'
 gem 'dotenv-rails', groups: [:development, :test]
 gem 'httparty'
 gem 'ruby-kafka'
-
 gem "karafka", ">= 2.2.10"
 gem "karafka-web", "~> 0.7.10"
+gem 'migu'
+gem 'weaviate-ruby'
 
 # Use Redis adapter to run Action Cable in production
 # gem "redis", ">= 4.0.1"

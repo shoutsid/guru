@@ -6,7 +6,6 @@ TODO: Record stream to text stream, to a_initiate_chat stream, get response and 
 
 import autogen
 from langchain.utilities.sql_database import SQLDatabase
-from langchain.agents.agent_toolkits import SparkSQLToolkit
 from datetime import datetime
 from openai.types.beta.thread import Thread as OpenAIThreadBase
 from guru.api.kafka.producer import trigger_to_topic
@@ -14,10 +13,10 @@ import os
 import discord
 import time
 from langchain.agents import load_tools
-from langchain.tools import Tool, ElevenLabsText2SpeechTool
+from langchain.tools import Tool
 from discord.ext import commands, tasks
-from discord_bot.audio_to_text import AudioToText
 from discord_bot.utils import INTENTS, logging, load_logger, DEFAULT_SYSTEM_MESSAGE, extract_file_path
+from discord_bot.message_splitter import send_message_in_paragraphs
 from guru.api.discord_guild_client import get_guild, create_guild, update_guild
 from guru.api.discord_channel_client import get_channel, create_channel, update_channel
 from guru.api.discord_thread_client import get_thread as get_discord_thread, create_thread as create_discord_thread, update_thread as update_discord_thread
@@ -36,192 +35,15 @@ DISCORD_BOT = commands.Bot(command_prefix='!', intents=INTENTS)
 
 BOT_TOKEN = os.getenv("DISCORD_TOKEN")
 
-TOOL_NAMES = []
-TOOLS = load_tools(TOOL_NAMES)
-FUNCTIONS_MAP = {}
-FUNCTIONS_CONFIG = []
-# 'ddg-search', 'requests_all', 'terminal', 'arxiv', 'wikipedia', 'sleep'
+# Not able to use these settings across every agent
+# Use Cache isn't a thing now?
+# "use_cache": True,  # Use False to explore LLM non-determinism.
+# "request_timeout": 180,# ????? Why has this all of a sudden not allowed 2023-11-20 01:38:35 TypeError: create() got an unexpected keyword argument 'request_timeout'
+# "retry_wait_time": 0.5,
+# "max_retry_period": 360,
 LLM_CONFIG = {
-    # Use Cache isn't a thing now?
-    # "use_cache": True,  # Use False to explore LLM non-determinism.
-    # "request_timeout": 180,# ????? Why has this all of a sudden not allowed 2023-11-20 01:38:35 TypeError: create() got an unexpected keyword argument 'request_timeout'
     "config_list": CONFIG_LIST,
-    # "retry_wait_time": 0.5,
-    # "max_retry_period": 360,
 }
-if TOOL_NAMES.__len__() > 0:
-    LLM_CONFIG["functions"] = FUNCTIONS_CONFIG
-
-MEMBERS = []
-CONNECTIONS = {}
-# GROUP_CHAT = GroupChatExpanded(agents=AGENTS, messages=MESSAGES, max_round=50)
-# GROUP_MANAGER = GroupChatManagerExpanded(groupchat=GROUP_CHAT, llm_config=LLM_CONFIG)
-global IN_VC
-IN_VC = False
-
-# START: =========== AI Related Functions
-
-
-def generate_user_agent(name, llm_config=None, code_execution=False):
-    if code_execution:
-        agent = UserAgent(
-            name=name,
-            max_consecutive_auto_reply=1,
-            human_input_mode="NEVER",
-            llm_config=llm_config,
-            is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
-            code_execution_config={
-                "work_dir": "agent_workspace",
-                "use_docker": True,
-            }
-        )
-    else:
-        agent = UserAgent(
-            name=name,
-            max_consecutive_auto_reply=0,
-            human_input_mode="NEVER",
-            llm_config=llm_config,
-            is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
-        )
-    return agent
-
-
-def generate_teachable_agent(name):
-    agent = EnhancedTeachableAgent(
-        name=name,
-        llm_config=LLM_CONFIG,
-        instructions=DEFAULT_SYSTEM_MESSAGE,
-    )
-    return agent
-# END: =========== AI Related Functions
-
-
-def generate_function_schema(tool):
-    """
-    Generate a function schema for a LangChain tool.
-    """
-    function_schema = {
-        "name": tool.name.lower().replace (' ', '_'),
-        "description": tool.description,
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-        },
-    }
-
-    if tool.args is not None:
-        function_schema["parameters"]["properties"] = tool.args
-
-    return function_schema
-
-for tool in TOOLS:
-    # pylint: disable=protected-access
-    FUNCTIONS_MAP[tool.name] = tool._run
-    # pylint: enable=protected-access
-    FUNCTIONS_CONFIG.append(generate_function_schema(tool))
-
-if FUNCTIONS_MAP.__len__() > 0:
-    USER_AGENT.register_function(
-        function_map=FUNCTIONS_MAP
-    )
-
-def add_function(name, description, func):
-    FUNCTIONS_MAP[name] = func
-    tool = Tool(name=name, description=description, func=func)
-    FUNCTIONS_CONFIG.append(generate_function_schema(tool))
-
-# =========== COMMANDS
-
-@DISCORD_BOT.command(description="Status Check")
-async def status(ctx):
-    msg = "I am online and ready to go!"
-    msg += f"\nIN_VC: {IN_VC}"
-    if any(CONNECTIONS):
-        msg += "\nI am currently connected to the following channels:"
-        for channel in CONNECTIONS:
-            msg += f"\n{channel}"
-    await ctx.send(msg)
-
-@DISCORD_BOT.command(description="Join Voice")
-async def join(ctx):
-    global IN_VC, CONNECTIONS
-    vc = await ctx.author.voice.channel.connect()
-    CONNECTIONS.update({ctx.guild.id: vc})
-    IN_VC = True
-    logging.info("Joined %s channel", ctx.author.voice.channel.name)
-
-@DISCORD_BOT.command(description="Leave Voice")
-async def leave(ctx):
-    global IN_VC, CONNECTIONS
-
-    if ctx.guild.id in CONNECTIONS:
-        vc = CONNECTIONS[ctx.guild.id]
-        if vc.is_playing():
-            vc.stop()
-        try:
-            vc.stop_recording()
-        except:
-            pass
-
-        del CONNECTIONS[ctx.guild.id]
-        await vc.disconnect()
-        IN_VC = False
-        logging.info("Left %s channel", ctx.author.voice.channel.name)
-
-@DISCORD_BOT.command(description="Join and Start Recording")
-async def start(ctx):
-    DISCORD_BOT.dispatch("join_channel", ctx)
-    time.sleep(1)
-    DISCORD_BOT.dispatch("start_recording", ctx)
-
-@DISCORD_BOT.command(description="Start Recording ")
-async def record(ctx):
-    DISCORD_BOT.dispatch("start_recording", ctx)
-
-@DISCORD_BOT.command(description="Stop Recording the Voice Channel")
-async def stop(ctx):
-    DISCORD_BOT.dispatch("stop_recording", ctx)
-
-@DISCORD_BOT.command(description="Ask Question to Agent and expect a voice")
-async def ask(ctx):
-    message = ctx.message.content[5:]
-    # Create an embed object
-    embed = discord.Embed(
-        title="Guru",
-        description="I am a Guru, ask me anything.",
-        color=discord.Color.blurple()
-    )
-    embed.add_field(name="Question", value=message, inline=True)
-    embed_message = await ctx.send(embed=embed)
-    await deal_with_message(ctx=ctx, message=message, embed=embed, embed_message=embed_message)
-
-@DISCORD_BOT.command(description="Ask Question to Agent and expect a voice")
-async def play_audio(ctx, file_path):
-    if not ctx.message.author.voice:
-        await ctx.send("You are not connected to a voice channel.")
-        return
-
-    # connect to the voice channel
-    channel = ctx.message.author.voice.channel
-    if not channel:
-        await ctx.send("Error finding a voice channel.")
-        return
-
-    if ctx.voice_client is None:
-        await channel.connect()
-
-    DISCORD_BOT.dispatch("speak", ctx, file_path)
-
-@DISCORD_BOT.command(description="Send all the member names of the server")
-async def print_members_to_console(ctx):
-    for member in MEMBERS:
-        print(member)
-
-@DISCORD_BOT.command(description="Send all channel names of the server")
-async def print_channels_to_console(ctx):
-    for channel in ctx.guild.channels:
-        print(channel)
 
 # =========== EVENTS
 
@@ -234,8 +56,6 @@ async def on_update_channel_messages(channel):
         logging.info("No permissions to channel %s", channel)
 
 # ========== GUILD EVENTS ==========
-
-GUILDS = []
 
 @DISCORD_BOT.event
 async def on_guild_update(before, after):
@@ -282,9 +102,8 @@ async def on_guild_available(guild):
 
     for member in guild.members:
         DISCORD_BOT.dispatch("handle_user", member)
-# ========== CHANNEL EVENTS ==========
 
-CHANNELS = []
+# ========== CHANNEL EVENTS ==========
 
 @DISCORD_BOT.event
 async def on_update_channel(channel):
@@ -358,11 +177,9 @@ async def on_handle_thread(thread):
 
 MESSAGES = {}
 
-
 @DISCORD_BOT.event
 async def on_message_edit(before, after):
     DISCORD_BOT.dispatch("handle_message", after)
-
 
 @DISCORD_BOT.event
 async def on_handle_message(message):
@@ -483,25 +300,6 @@ def handle_role_message(role, teachable_agent, user_agent, oai_message):
         teachable_agent._oai_messages[user_agent].append(oai_message)
         user_agent._oai_messages[user_agent].append(oai_message)
 
-async def send_message_in_paragraphs(message, content):
-    if len(content) > 1024:
-        logging.info("Found text %s in reply", content)
-        # take into consideration not every new line is a new paragraph
-        # We have contain backtick code blocks also.
-        split = content.split("\n\n")
-        for _m in split:
-            for i in range(0, len(_m), 1024):
-                index = split.index(_m)
-                msg = split[index][i:i+1024]
-                # Use 'await' to send messages in an async function
-                await message.channel.send(msg)
-    else:
-        # Use 'await' to send messages in an async function
-        await message.channel.send(content)
-
-
-MAX_MESSAGES = 10
-
 def find_open_ai_thread(user):
     # find thread based on concept origins
     thread = None
@@ -541,6 +339,46 @@ def find_open_ai_thread(user):
 
     return thread
 
+# START: =========== AI Related Functions
+
+
+def generate_user_agent(name, llm_config=None, code_execution=False):
+    if code_execution:
+        agent = UserAgent(
+            name=name,
+            system_message="You take code other assistants or agents and execute it.",
+            max_consecutive_auto_reply=1,
+            human_input_mode="NEVER",
+            llm_config=llm_config,
+            is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
+            code_execution_config={
+                "work_dir": "agent_workspace",
+                "use_docker": True,
+            }
+        )
+    else:
+        agent = UserAgent(
+            name=name,
+            system_message="You are the user.",
+            max_consecutive_auto_reply=0,
+            human_input_mode="NEVER",
+            llm_config=llm_config,
+            is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
+        )
+    return agent
+
+
+def generate_teachable_agent(name):
+    agent = EnhancedTeachableAgent(
+        name=name,
+        llm_config=LLM_CONFIG,
+        instructions=DEFAULT_SYSTEM_MESSAGE,
+    )
+    return agent
+
+
+# END: =========== AI Related Functions
+
 
 # create concept origin assosication
 @trigger_to_topic('concept_origin')
@@ -552,17 +390,26 @@ def associate_concept_origin(concept_class: str, origin_class: str, conceptable_
     data["originable_id"] = originable_id
     return data
 
+
+MAX_MESSAGES = 30
+USER_MESSAGE_COUNT = {}
+
 @DISCORD_BOT.event
 async def on_message(message):
     # Record the message
     DISCORD_BOT.dispatch("handle_message", message)
+    NEW_THREAD = False
 
     # Stop cyclic messages
     if message.author == DISCORD_BOT.user:
         return
 
     # Deal with ! commands
-    if message.content.startswith("!"):
+    if message.content.startswith("!newthread") and isinstance(message.channel, discord.DMChannel):
+        logging.info("!newthread command received, setting NEW_THREAD to True")
+        NEW_THREAD = True
+    elif message.content.startswith("!"):
+        logging.info("Received a command, processing it")
         await DISCORD_BOT.process_commands(message)
         return
 
@@ -570,17 +417,32 @@ async def on_message(message):
         logging.info("Received a DM from %s", message.author)
         logging.info("Creating agent for %s", message.author)
 
+        USER_MESSAGE_COUNT[message.author.id] = USER_MESSAGE_COUNT.get(
+            message.author.id, 0) + 1
+        if USER_MESSAGE_COUNT[message.author.id] < MAX_MESSAGES:
+            logging.info("Max messages not reached, using existing thread.")
+            thread = find_open_ai_thread(message.author)
+        else:
+            text = f"Max messages reached ({MAX_MESSAGES}). We must create a new thread for money purposes. Please use !newthread to continue. We will improve this moving forward."
+            await message.channel.send(text)
+            return
+
+        if NEW_THREAD is True:
+            logging.info("NEW_THREAD is True, this should create new thread")
+            thread = None
+            await message.channel.send("Creating a new thread for you.")
+
         manager, groupchat, user_agent, user_execution_agent, teachable_agent = find_or_create_agents(
             message.author)
 
-        # insert our existing thread from the guru into the teachable_agent
-        thread = find_open_ai_thread(message.author)
         if thread is not None:
             logging.info("Found thread for %s", message.author)
             teachable_agent._openai_threads[manager] = thread
         else:
             logging.info("No thread found for %s", message.author)
 
+        # sending typing notification
+        await message.channel.trigger_typing()
         user_agent.initiate_chat(
             manager, message=message.content, clear_history=False)
         last_message = manager.last_message(user_agent)
@@ -593,8 +455,6 @@ async def on_message(message):
         await send_message_in_paragraphs(message, last_message["content"])
 
 # ========== USER/MEMBER EVENTS ==========
-
-USERS = []
 
 @DISCORD_BOT.event
 async def on_handle_user(user):
@@ -612,193 +472,16 @@ async def on_handle_user(user):
 
     if response is None:
         logging.info("No user found, creating a user")
-        response = create_user(user_data)
-        logging.info("Created user: %s", response)
-        # Add additional logic as needed, like appending to a list
+        create_user(user_data)
+        logging.info("Created user")
     else:
         logging.info("Found user, updating it")
-        response = update_user(user.id, user_data)
-        logging.info("Updated user: %s", response)
-        # Update your stored user data or perform other actions as needed
+        update_user(user.id, user_data)
+        logging.info("Updated user")
 
 @DISCORD_BOT.event
 async def on_member_join(member):
     logging.info("Member %s joined", member)
     DISCORD_BOT.dispatch("handle_user", member)
 
-# ========== VOICE EVENTS ==========
-
-@DISCORD_BOT.event
-async def on_stop_recording(ctx):
-    ctx.guild.voice_client.stop_recording()
-    logging.info("Stopped recording in %s channel", ctx.author.voice.channel.name)
-
-@DISCORD_BOT.event
-async def on_start_recording(ctx):
-    ctx.guild.voice_client.start_recording(discord.sinks.MP3Sink(), finished_callback, ctx)
-    logging.info("Started recording in %s channel", ctx.author.voice.channel.name)
-
-# TODO: Think about renaming this method
-@DISCORD_BOT.event
-async def on_join_channel(ctx):
-    await ctx.author.voice.channel.connect()
-    logging.info("Joined %s channel", ctx.author.voice.channel.name)
-
-@DISCORD_BOT.event
-async def on_speak(ctx, audio_file_path: str):
-    await play_audio_to_voice_channel(ctx, file_path=audio_file_path)
-
-# ======= COGS & LOOPS =======
-
-@tasks.loop(seconds=5.0, count=1)
-async def start_task():
-    global MEMBERS
-    await DISCORD_BOT.wait_until_ready()
-    print("Primary Loop, %s members" % len(MEMBERS))
-
-    # Check and update members list
-    for member in DISCORD_BOT.get_all_members():
-        if member not in MEMBERS:
-            print("Adding member", member)
-            MEMBERS.append(member)
-
-    # for channel in DISCORD_BOT.get_all_channels():
-    #     DISCORD_BOT.dispatch("update_channel", channel)
-
-# TODO: Check if the bot is in a voice channel
-# Constantly listen for activation words
-# if activation words are found, start recording
-
-# ======= HELPERS =======
-
-async def process_audio(ctx, sink, audio, files, timestamp, user_id):
-    logging.info("Processing audio of %s", user_id)
-    # create folders
-    folder = os.path.join(os.getcwd(), "recordings")
-    if not os.path.exists(folder):
-        os.mkdir(folder)
-    folder = os.path.join(folder, f"{timestamp}")
-    if not os.path.exists(folder):
-        os.mkdir(folder)
-
-    discord_file = discord.File(audio.file, f"{folder}/{user_id}.{sink.encoding}")
-    files.append(discord_file)
-    # save audio to file
-    audio_filename = f"{folder}/{user_id}.{sink.encoding}"
-    with open(audio_filename, "wb") as f:
-        f.write(audio.file.read())
-        f.close()
-    logging.info("Saved audio of %s to %s", user_id, audio_filename)
-    audio_to_text = AudioToText(audio_filename, f"{folder}/{user_id}.txt")
-    transcription = audio_to_text.transcribe()
-    logging.info("Transcribed audio of %s to %s", user_id, transcription)
-
-    logging.info("Initiating chat with the agents")
-    await deal_with_message(ctx, transcription)
-
-async def deal_with_message(ctx, message, embed=discord.Embed(), embed_message=None):
-    timestamp = ctx.message.created_at.strftime("%Y-%m-%d-%H-%M-%S")
-    message = f"{timestamp}: {message}"
-
-    await USER_AGENT.a_initiate_chat(TEACHABLE_AGENT, message=message, clear_history=False)
-    last_message = TEACHABLE_AGENT.last_message(USER_AGENT)
-    # if last message is a function call, ignore it
-    if last_message is None:
-        logging.info("No reply from")
-        return
-
-    # check if this reply contains a file
-    file_path = extract_file_path(last_message["content"])
-    if file_path is not None:
-        logging.info("Found file path %s in reply", file_path)
-
-        if embed_message is not None:
-            embed.add_field(name=f"Reply", value=last_message["content"], inline=False)
-            embed_message.edit(embed=embed)
-
-        if IN_VC:
-            file = discord.File(file_path)
-            embed.add_field(name="Audio File", value=file_path, inline=True)
-            await embed_message.edit(embed=embed, file=file)
-            await play_audio_to_voice_channel(ctx, file_path=file_path)
-        return
-
-    # TODO: Put this through processing agent which will convert the text
-    # into human-like text which can be spoken well. Also
-    # This will chunk correctly, without major cutoffs.
-    #
-    # Current Functionality:
-    # send text back to channel
-    # must not be more than 1024 characters - character restrictions on discord + tts
-    # if so split up into multiple messages
-
-    if len(last_message["content"]) > 1024:
-        logging.info("Found text %s in reply", last_message["content"])
-        for i in range(0, len(last_message["content"]), 1024):
-            msg = last_message["content"][i:i+1024]
-            if embed_message is not None:
-                embed.add_field(name=f"Reply pt.{i}", value=msg, inline=False)
-                await embed_message.edit(embed=embed)
-
-        for i in range(0, len(last_message["content"]), 1024):
-            msg = last_message["content"][i:i+1024]
-            if IN_VC:
-                await do_tts(ctx, msg, embed=embed, embed_message=embed_message)
-        return
-
-    if embed_message is not None:
-        embed.add_field(name="Reply", value=last_message["content"], inline=False)
-        await embed_message.edit(embed=embed)
-
-    if IN_VC:
-        await do_tts(ctx, text=last_message["content"], embed=embed, embed_message=embed_message)
-    return
-
-async def do_tts(ctx, text, embed=discord.Embed(), embed_message=None):
-    # If the message is pure text, we can use ElevenLabsText2SpeechTool to convert it to speech
-    # Then we can play the audio in the voice channel
-    logging.info("Converting text to speech")
-    tts = ElevenLabsText2SpeechTool()
-    file_path = tts.run(text)
-    time.sleep(5) # allow for the file to be created
-    file = discord.File(file_path)
-    embed.add_field(name="Audio File", value=file_path, inline=True)
-    await embed_message.edit(embed=embed, file=file)
-    await play_audio_to_voice_channel(ctx, file_path=file_path)
-
-# Primary talking loop
-async def play_audio_to_voice_channel(ctx, file_path):
-    if not ctx.message.author.voice:
-        await ctx.send("You are not connected to a voice channel.")
-        return
-
-    channel = ctx.message.author.voice.channel
-
-    if not channel:
-        await ctx.send("Error finding a voice channel.")
-        return
-
-    if ctx.voice_client is None:
-        voice_client = await channel.connect()
-        ctx.voice_client = voice_client
-    else:
-        voice_client = ctx.voice_client
-
-    audio_source = discord.FFmpegOpusAudio(source=file_path)
-    if not voice_client.is_playing():
-        voice_client.play(audio_source)
-
-async def finished_callback(sink, ctx):
-    recorded_users = [
-        f"<@{user_id}>"
-        for user_id, audio in sink.audio_data.items()
-    ]
-    logging.info("Callback started! I have successfully recorded the Audio of %s", 'and '.join(recorded_users))
-    files = []
-    timestamp = ctx.message.created_at.strftime("%Y-%m-%d-%H-%M-%S")
-    for user_id, audio in sink.audio_data.items():
-        await process_audio(ctx, sink, audio, files, timestamp, user_id)
-    logging.info("Finished recording in %s channel", ctx.author.voice.channel.name)
-
-start_task.start()
 DISCORD_BOT.run(BOT_TOKEN)

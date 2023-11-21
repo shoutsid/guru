@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
 class DiscordChannelConsumer < ApplicationConsumer
+  # fingers crossed this this is fifo
   def consume
-    # TODO: sort out how to handle multiple of the same messages
     messages.payloads.each do |payload|
       Rails.logger.debug("DiscordChannelConsumer: #{payload}")
-      DiscordChannel.upsert payload
+      channel =  DiscordChannel.find(payload['discord_id'])
+      channel.update!(payload)
     end
   end
 end
