@@ -9,13 +9,14 @@ class CreateDiscordMessages < Migu::Migration
     $weaviate_client.schema.create(
         class_name: 'DiscordMessage',
         description: 'Information about a Discord message',
-        vectorizer: 'multi2vec-bind',
+        vectorizer: 'text2vec-openai',
         module_config: {
           'multi2vec-bind': {
-            'textFields': ["content", "author_id", "channel_id", "guild_id", "created_at", "updated_at"],
+            'qna-openai': {
+              'model': 'text-davinci-002',
+            }
           }
         },
-
         properties: [
           {
             'dataType': ['string'],
