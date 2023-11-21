@@ -19,6 +19,7 @@ services:
       - "5432:5432"
 
   weaviate:
+    container_name: weaviate
     command:
       - --host
       - 0.0.0.0
@@ -50,7 +51,14 @@ services:
   multi2vec-bind:
     image: semitechnologies/multi2vec-bind:imagebind
     environment:
-      ENABLE_CUDA: '0'
+      ENABLE_CUDA: '1'
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: ['0']
+            capabilities: [gpu]
 
   reranker-transformers:
     image: semitechnologies/reranker-transformers:cross-encoder-ms-marco-MiniLM-L-6-v2
@@ -160,8 +168,11 @@ services:
         condition: service_healthy
       zookeeper:
         condition: service_healthy
+      weaviate:
+        condition: service_started
     links:
       - db:db
+      - weaviate:weaviate
 
   karafka:
     container_name: karafka
@@ -184,8 +195,11 @@ services:
         condition: service_healthy
       zookeeper:
         condition: service_healthy
+      weaviate:
+        condition: service_started
     links:
       - db:db
+      - weaviate:weaviate
 
   karafka_web:
     container_name: karafka_web
