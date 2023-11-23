@@ -64,3 +64,8 @@ apache-beam
 # bertopic
 # # for creating executables
 # pyinstaller
+
+textblob
+gensim
+seaborn
+wordcloud

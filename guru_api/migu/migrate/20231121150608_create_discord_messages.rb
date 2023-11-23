@@ -11,10 +11,8 @@ class CreateDiscordMessages < Migu::Migration
         description: 'Information about a Discord message',
         vectorizer: 'text2vec-openai',
         module_config: {
-          'multi2vec-bind': {
-            'qna-openai': {
-              'model': 'text-davinci-002',
-            }
+          'qna-openai': {
+            'model': 'text-davinci-002',
           }
         },
         properties: [

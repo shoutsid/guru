@@ -57,12 +57,12 @@ def search_discord_messages(query, class_name, limit=1):
 
 def search_discord_messages2():
     properties = [
-        "content",
-        "_additional { answer { hasAnswer property result startPosition endPosition } distance }"
+        "content"
+        # "_additional { answer { hasAnswer property result startPosition endPosition } distance }"
     ]
 
     ask = {
-        "question": "Who is Sid?",
+        "question": "who is sid?",
         "properties": ["summary"]
     }
 
@@ -70,7 +70,7 @@ def search_discord_messages2():
         client.query
         .get('DiscordMessage', properties)
         .with_ask(ask)
-        .with_limit(1)
+        .with_limit(10)
         .do()
     )
     # Check for errors
@@ -81,4 +81,18 @@ def search_discord_messages2():
 
 
 if __name__ == "__main__":
-    print(search_discord_messages2())
+    import json
+    # print(search_discord_messages2())
+    generate_prompt = "Summarize: {content}."
+
+    response = (
+        client.query
+        .get("DiscordMessage", ["content"])
+        .with_generate(single_prompt=generate_prompt)
+        .with_near_text({
+            "concepts": ["*"]
+        })
+        .with_limit(2)
+    ).do()
+
+    print(json.dumps(response, indent=2))
