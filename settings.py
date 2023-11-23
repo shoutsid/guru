@@ -37,7 +37,7 @@ else:
     ]
 
 LLM_CONFIG = {
-    "request_timeout": 60*5,
+    # "request_timeout": 60*5,
     # "seed": 42,
     "config_list": CONFIG_LIST,
     "temperature": 0

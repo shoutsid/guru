@@ -70,25 +70,25 @@ services:
     links:
       - zookeeper:zookeeper
 
-  # Client for the Guru API
-  python_guru_kafka_consumer:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    depends_on:
-      db:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      zookeeper:
-        condition: service_healthy
-      guru_api:
-        condition: service_healthy
-    links:
-      - guru_api:guru_api
-    env_file:
-      - .env_discord_bot
-    command: python3 ./guru/api/kafka/consumer.py
+  # # Client for the Guru API
+  # python_guru_kafka_consumer:
+  #   build:
+  #     context: .
+  #     dockerfile: ./Dockerfile
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #     zookeeper:
+  #       condition: service_healthy
+  #     guru_api:
+  #       condition: service_healthy
+  #   links:
+  #     - guru_api:guru_api
+  #   env_file:
+  #     - .env_discord_bot
+  #   command: python3 ./guru/api/kafka/consumer.py
 
   # Client for the Guru API
   discord_bot:
@@ -104,6 +104,8 @@ services:
         condition: service_healthy
       guru_api:
         condition: service_healthy
+      weaviate:
+        condition: service_started
     links:
       - guru_api:guru_api
     env_file:

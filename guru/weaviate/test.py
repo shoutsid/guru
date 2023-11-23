@@ -170,8 +170,10 @@ if __name__ == "__main__":
     # print(messages)
     user_profiles = aggregate_to_user_profiles(messages)
     print(user_profiles)
-    create_user_profile_class(client)
-    print("Created user profile class in Weaviate")
+
+    # create_user_profile_class(client)
+    # print("Created user profile class in Weaviate")
+
     store_user_profiles(client, user_profiles)
     print("Stored user profiles in Weaviate")
 

@@ -6,7 +6,9 @@ module WeaviateVectorizable
 
   included do
     after_create :find_and_create_weaviate_object
-    after_update :find_and_update_weaviate_object
+    # Disabling this for now, trying to determine if updates wipe out existing data at any point
+    # after_update :find_and_update_weaviate_object
+
     WEAVIATE_EXCLUDED_ATTRIBUTES = ['id', 'weaviate_id', 'created_at', 'updated_at']
   end
 

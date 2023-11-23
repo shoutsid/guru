@@ -4,6 +4,7 @@ TODO: Send back the audio to the channel along with the text, so that the user c
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
 
+from guru.weaviate.client import client
 import autogen
 from langchain.utilities.sql_database import SQLDatabase
 from datetime import datetime
@@ -12,6 +13,7 @@ from guru.api.kafka.producer import trigger_to_topic
 import os
 import discord
 import time
+from typing import Any, Dict, List
 from langchain.agents import load_tools
 from langchain.tools import Tool
 from discord.ext import commands, tasks
@@ -27,6 +29,8 @@ from guru.api.open_ai_thread_client import get_thread as get_open_ai_thread, cre
 from guru.api.open_ai_message_client import get_message as get_open_ai_message, create_message as create_open_ai_message, update_message as update_open_ai_message, list_messages as list_open_ai_message
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
+from guru.agents.discord_agent import DiscordAgent
+from guru.agents.utils import openai_tool_decorator
 from settings import CONFIG_LIST
 
 load_logger()
@@ -282,9 +286,8 @@ def find_or_create_agents(author):
         llm_config=config,
         instructions=current_message
     )
-
     groupchat = autogen.GroupChat(
-        agents=[user_agent, teachable_agent, user_execution_agent], messages=[], max_round=10)
+        agents=[user_agent, teachable_agent], messages=[], max_round=10)
     manager = autogen.GroupChatManager(
         groupchat=groupchat, llm_config=LLM_CONFIG)
 
@@ -483,5 +486,87 @@ async def on_handle_user(user):
 async def on_member_join(member):
     logging.info("Member %s joined", member)
     DISCORD_BOT.dispatch("handle_user", member)
+
+
+@DISCORD_BOT.command(description="testing groupchat with bot")
+async def test1(ctx):
+    NEW_THREAD = True
+
+    author = ctx.message.author
+    message = ctx.message
+    # strip command name from message
+    message.content = message.content.replace("!test1", "").strip()
+
+    user_agent_name = f"discord_member_{author.id}"
+    teachable_agent_name = f"discord_assistant_{author.id}"
+    current_message = DEFAULT_SYSTEM_MESSAGE
+    config = LLM_CONFIG.copy()
+    user_agent = generate_user_agent(name=user_agent_name, llm_config=config)
+
+    assistants = list_assistants() or []
+
+    for assistant in assistants:
+        if assistant["name"] == teachable_agent_name:
+            config["assistant_id"] = assistant["external_id"]
+            break
+
+    teachable_agent = EnhancedTeachableAgent(
+        name=teachable_agent_name,
+        llm_config=config,
+        instructions=current_message
+    )
+
+    # Add DiscordQueryAgent function get_data_with_near_text generation to the code execution agent
+    config = LLM_CONFIG.copy()
+    discord_agent = DiscordAgent(
+        name="discord_agent",
+        system_message="You are a Discord Assistant, you have the ability to search previous discord messages.",
+        human_input_mode="NEVER",
+        llm_config=config,
+    )
+
+    groupchat = autogen.GroupChat(
+        agents=[user_agent, discord_agent], messages=[], max_round=10)
+    manager = autogen.GroupChatManager(
+        groupchat=groupchat, llm_config=LLM_CONFIG)
+
+    logging.info("Received a DM from %s", message.author)
+    logging.info("Creating agent for %s", message.author)
+
+    USER_MESSAGE_COUNT[message.author.id] = USER_MESSAGE_COUNT.get(
+        message.author.id, 0) + 1
+    if USER_MESSAGE_COUNT[message.author.id] < MAX_MESSAGES:
+        logging.info("Max messages not reached, using existing thread.")
+        thread = find_open_ai_thread(message.author)
+    else:
+        text = f"Max messages reached ({MAX_MESSAGES}). We must create a new thread for money purposes. Please use !newthread to continue. We will improve this moving forward."
+        await message.channel.send(text)
+        return
+
+    if NEW_THREAD is True:
+        logging.info("NEW_THREAD is True, this should create new thread")
+        thread = None
+        await message.channel.send("Creating a new thread for you.")
+
+    if thread is not None:
+        logging.info("Found thread for %s", message.author)
+        teachable_agent._openai_threads[manager] = thread
+    else:
+        logging.info("No thread found for %s", message.author)
+
+    # sending typing notification
+    await message.channel.trigger_typing()
+    user_agent.initiate_chat(
+        manager, message=message.content, clear_history=True)
+    last_message = manager.last_message(user_agent)
+
+    print("last_message")
+    print(str(last_message))
+
+    if last_message["content"]:
+        await send_message_in_paragraphs(message, last_message["content"])
+
+
+
 
 DISCORD_BOT.run(BOT_TOKEN)
