@@ -1,6 +1,34 @@
 import re
 
 
+def rightTrim(text, toBeTrimmed):
+    while text.endswith(toBeTrimmed):
+        text = text[:-len(toBeTrimmed)]
+    return text
+
+
+def splittingIndex(text, maxLength, newline):
+    if len(text) <= maxLength:
+        return (len(text))
+    remainingText = text[:maxLength+2*len(newline)]
+    while True:
+        possibleIndex = remainingText.rindex(newline)
+        remainingText = remainingText[:possibleIndex]
+        if remainingText.endswith(newline):
+            remainingText = rightTrim(remainingText, newline)
+        elif possibleIndex <= maxLength:
+            return possibleIndex
+
+
+def split(text, maxLength, newline):
+    splittedText = []
+    while text != "":
+        currentSplittingIndex = splittingIndex(text, maxLength, newline)
+        splittedText.append(text[:currentSplittingIndex])
+        text = text[currentSplittingIndex+len(newline):]
+    return splittedText
+
+
 async def send_message_in_paragraphs(message, content):
     """
     Splits a large message into chunks suitable for Discord, ensuring each chunk is no more than 1024 characters.
@@ -9,7 +37,10 @@ async def send_message_in_paragraphs(message, content):
     :param content: The large content string to be sent
     """
 
-    MAX_LENGTH = 1024  # Discord's max message length
+    MAX_LENGTH = 2000  # Discord's max message length
+    # NEW_LINE_SEPARATOR = '\n'  # New line separator for splitting text
+    # return split(content, MAX_LENGTH, NEW_LINE_SEPARATOR)
+
     code_block_pattern = r'```[\s\S]*?```'  # Pattern to match code blocks
 
     def split_code_block(block):
@@ -34,6 +65,11 @@ async def send_message_in_paragraphs(message, content):
           current_chunk = current_chunk[:-1]
       if current_chunk:
           chunks.append(current_chunk)
+
+      # remove all code block ticks
+      # start and end of each chunk must be opening and closing code block
+      chunks = [chunk.strip("`") for chunk in chunks]
+      chunks = [f"```{chunk}```" for chunk in chunks]
       return chunks
 
     def split_code_blocks(text):
@@ -57,15 +93,21 @@ async def send_message_in_paragraphs(message, content):
         """
         Splits non-code block text into chunks, each within the Discord message length limit.
         """
-        words = text.split()
         chunks = []
         current_chunk = ''
-        for word in words:
-            if len(current_chunk) + len(word) + 1 <= MAX_LENGTH:
-                current_chunk += (word + ' ')
+        lines = text.split('\n')
+        for line in lines:
+            if len(current_chunk) + len(line) + 1 <= MAX_LENGTH:
+                current_chunk += (line + '\n')
             else:
-                chunks.append(current_chunk)
-                current_chunk = word + ' '
+                if current_chunk:  # Add this line
+                    chunks.append(current_chunk)  # And this line
+                while len(line) > MAX_LENGTH:
+                    chunks.append(line[:MAX_LENGTH])
+                    line = line[MAX_LENGTH:]
+                if line:
+                    chunks.append(line + '\n')
+                current_chunk = ''
         if current_chunk:
             chunks.append(current_chunk)
         return chunks

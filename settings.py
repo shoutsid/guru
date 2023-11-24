@@ -8,7 +8,7 @@ if "OPENAI_API_KEY" not in os.environ:
     raise EnvironmentError("Missing essential environment variable: OPENAI_API_KEY")
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-GPT3_5_TURBO_0613 = "gpt-3.5-turbo"
+GPT3_5_TURBO_1106 = "gpt-3.5-turbo-1106"
 GPT4 = "gpt-4-1106-preview"
 VICUNA_7B_V1_5 = "vicuna-7b-v1.5"
 
@@ -22,7 +22,7 @@ if "GPT4" in os.environ:
 elif "LOCAL" in os.environ:
     CONFIG_LIST = [
         {
-            "model": GPT3_5_TURBO_0613,
+            "model": GPT3_5_TURBO_1106,
             "api_key": "None",
             "api_base": "http://localhost:8000/v1",
             "api_type": "open_ai",
@@ -37,8 +37,6 @@ else:
     ]
 
 LLM_CONFIG = {
-    # "request_timeout": 60*5,
-    # "seed": 42,
     "config_list": CONFIG_LIST,
     "temperature": 0
 }

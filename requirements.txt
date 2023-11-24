@@ -70,3 +70,4 @@ gensim
 seaborn
 wordcloud
 arxiv
+playwright

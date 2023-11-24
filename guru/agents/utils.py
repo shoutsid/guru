@@ -106,8 +106,12 @@ def openai_tool_decorator(func: Callable) -> Callable:
         if param.default is inspect.Parameter.empty:
             tools["function"]["parameters"]["required"].append(param_name)
 
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
+    if inspect.iscoroutinefunction(func):
+        async def wrapper(*args, **kwargs):
+            return await func(*args, **kwargs)
+    else:
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
 
     wrapper.tools = tools
     return wrapper

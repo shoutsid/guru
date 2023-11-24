@@ -30,8 +30,10 @@ from guru.api.open_ai_message_client import get_message as get_open_ai_message, 
 from guru.agents.user_agent import UserAgent
 from guru.agents.enhanced_teachable_agent import EnhancedTeachableAgent
 from guru.agents.discord_agent import DiscordAgent
-from guru.agents.utils import openai_tool_decorator
+from guru.agents.group_chat import GuruGroupChat, GuruGroupChatManager
+
 from settings import CONFIG_LIST
+import asyncio
 
 load_logger()
 
@@ -357,7 +359,8 @@ def generate_user_agent(name, llm_config=None, code_execution=False):
             code_execution_config={
                 "work_dir": "agent_workspace",
                 "use_docker": True,
-            }
+            },
+            clear_history=True,
         )
     else:
         agent = UserAgent(
@@ -489,83 +492,69 @@ async def on_member_join(member):
     logging.info("Member %s joined", member)
     DISCORD_BOT.dispatch("handle_user", member)
 
+IS_TYPING = False
+
+# Define the function to be triggered every 5 seconds
+
+
+async def trigger_action(message):
+    global IS_TYPING
+    while IS_TYPING:
+        print("Triggering typing action...")
+        await message.channel.trigger_typing()
+        # Wait for 5 seconds
+        await asyncio.sleep(5)
+
+
+async def start_trigger(message):
+    global IS_TYPING
+    while IS_TYPING:
+        await trigger_action(message)
+
+
+@DISCORD_BOT.event
+async def on_trigger_typing(message):
+    global IS_TYPING
+    IS_TYPING = True
+    await start_trigger(message)
+
 
 @DISCORD_BOT.command(description="testing groupchat with bot")
 async def test1(ctx):
-    NEW_THREAD = True
+    # global IS_TYPING
+    # Create an event loop and run the trigger loop
+    # IS_TYPING = True
+    # DISCORD_BOT.dispatch("trigger_typing", ctx.message)
 
-    author = ctx.message.author
     message = ctx.message
-    # strip command name from message
-    message.content = message.content.replace("!test1", "").strip()
+    message.content = message.content.replace(
+        "!test1", "").strip()  # strip command name from message
 
-    user_agent_name = f"discord_member_{author.id}"
-    teachable_agent_name = f"discord_assistant_{author.id}"
-    current_message = DEFAULT_SYSTEM_MESSAGE
-    config = LLM_CONFIG.copy()
-    user_agent = generate_user_agent(name=user_agent_name, llm_config=config)
-
-    assistants = list_assistants() or []
-
-    for assistant in assistants:
-        if assistant["name"] == teachable_agent_name:
-            config["assistant_id"] = assistant["external_id"]
-            break
-
-    teachable_agent = EnhancedTeachableAgent(
-        name=teachable_agent_name,
-        llm_config=config,
-        instructions=current_message
-    )
-
-    # Add DiscordQueryAgent function get_data_with_near_text generation to the code execution agent
-    config = LLM_CONFIG.copy()
-    discord_agent = DiscordAgent(
-        name="discord_agent",
-        system_message="You are a Discord Assistant, you have the ability to search previous discord messages.",
-        human_input_mode="NEVER",
-        llm_config=config,
-    )
-
-    groupchat = autogen.GroupChat(
-        agents=[user_agent, discord_agent], messages=[], max_round=10)
-    manager = autogen.GroupChatManager(
+    groupchat = GuruGroupChat(messages=[], max_round=10)
+    manager = GuruGroupChatManager(
         groupchat=groupchat, llm_config=LLM_CONFIG)
 
     logging.info("Received a DM from %s", message.author)
     logging.info("Creating agent for %s", message.author)
 
-    USER_MESSAGE_COUNT[message.author.id] = USER_MESSAGE_COUNT.get(
-        message.author.id, 0) + 1
-    if USER_MESSAGE_COUNT[message.author.id] < MAX_MESSAGES:
-        logging.info("Max messages not reached, using existing thread.")
-        thread = find_open_ai_thread(message.author)
-    else:
-        text = f"Max messages reached ({MAX_MESSAGES}). We must create a new thread for money purposes. Please use !newthread to continue. We will improve this moving forward."
-        await message.channel.send(text)
-        return
-
-    if NEW_THREAD is True:
-        logging.info("NEW_THREAD is True, this should create new thread")
-        thread = None
-        await message.channel.send("Creating a new thread for you.")
-
-    if thread is not None:
-        logging.info("Found thread for %s", message.author)
-        teachable_agent._openai_threads[manager] = thread
-    else:
-        logging.info("No thread found for %s", message.author)
-
     # sending typing notification
-    await message.channel.trigger_typing()
-    user_agent.initiate_chat(
+    # Create a flag variable
+    groupchat.user_proxy.initiate_chat(
         manager, message=message.content, clear_history=True)
-    last_message = manager.last_message(user_agent)
+    last_message = manager.last_message(groupchat.user_proxy)
+    # IS_TYPING = False
 
     print("last_message")
     print(str(last_message))
+    for reply in groupchat.messages:
+        index = groupchat.messages.index(reply)
+        print("reply:")
+        print(str(reply))
+        if reply["name"] == "discord_agent_user_proxy" and index is not 0:
+            if reply["content"]:
+                await send_message_in_paragraphs(message, reply["content"])
+            else:
+                await send_message_in_paragraphs(message, f"{reply['content']} Calling Function: {reply['function_call']}")
 
-    if last_message["content"]:
-        await send_message_in_paragraphs(message, last_message["content"])
 
 DISCORD_BOT.run(BOT_TOKEN)
