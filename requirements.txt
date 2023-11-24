@@ -69,3 +69,4 @@ textblob
 gensim
 seaborn
 wordcloud
+arxiv

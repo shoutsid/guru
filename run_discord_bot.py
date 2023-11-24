@@ -452,10 +452,12 @@ async def on_message(message):
 
         # ensure we can pickup the thread on next on_message invocation
         # the teachable will have a thread back to the manager, so we grab that as the concept origin
-        associate_concept_origin(concept_class="OpenAiThread", origin_class="DiscordUser",
-                                 conceptable_id=teachable_agent._openai_threads[manager].id, originable_id=message.author.id)
+        # if no content, either TERMINATE, no response or function call
+        if last_message["content"]:
+            associate_concept_origin(concept_class="OpenAiThread", origin_class="DiscordUser",
+                                     conceptable_id=teachable_agent._openai_threads[manager].id, originable_id=message.author.id)
 
-        await send_message_in_paragraphs(message, last_message["content"])
+            await send_message_in_paragraphs(message, last_message["content"])
 
 # ========== USER/MEMBER EVENTS ==========
 
@@ -565,8 +567,5 @@ async def test1(ctx):
 
     if last_message["content"]:
         await send_message_in_paragraphs(message, last_message["content"])
-
-
-
 
 DISCORD_BOT.run(BOT_TOKEN)

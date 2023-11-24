@@ -87,7 +87,7 @@ services:
   #   links:
   #     - guru_api:guru_api
   #   env_file:
-  #     - .env_discord_bot
+  #     - .env.discord_bot
   #   command: python3 ./guru/api/kafka/consumer.py
 
   # Client for the Guru API
@@ -109,7 +109,7 @@ services:
     links:
       - guru_api:guru_api
     env_file:
-      - .env_discord_bot
+      - .env.discord_bot
     command: python3 run_discord_bot.py
 
   # This runs as it's in Production. Modify with caution.
@@ -187,7 +187,7 @@ services:
     command: bash -c "bundle exec karafka-web install && bundle exec rackup -o 0.0.0.0 karafka_web.ru"
     env_file:
       - .env
-      - .env_karafka_web
+      - .env.karafka_web
     volumes:
       - guru_api_storage:/rails/storage/
     depends_on:
