@@ -18,5 +18,6 @@ guru/models/whisper/weights/**
 tmp/
 local_cache/
 
-data/
-photos/
+*/data/
+*/photos/
+*/fiqa/

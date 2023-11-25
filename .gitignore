@@ -25,6 +25,7 @@ recordings/
 
 .env_*
 .env.*
-data/
 
+data/
 photos/
+fiqa/
