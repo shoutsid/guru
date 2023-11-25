@@ -26,3 +26,5 @@ recordings/
 .env_*
 .env.*
 data/
+
+photos/

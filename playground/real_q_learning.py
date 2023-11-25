@@ -132,7 +132,7 @@ agent = DQNAgent(input_size, hidden_size, output_size, capacity,
 
 # Training loop
 epsilon = epsilon_start
-for episode in range(1000):
+for episode in range(100):
     state = env.reset()
     total_reward = 0
 

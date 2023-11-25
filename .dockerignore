@@ -17,3 +17,6 @@ guru/models/whisper/weights/**
 !.keep
 tmp/
 local_cache/
+
+data/
+photos/
