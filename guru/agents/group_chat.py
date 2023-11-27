@@ -218,7 +218,7 @@ class GuruGroupChatManager(GroupChatManager):
     def __init__(self, groupchat: GuruGroupChat, **kwargs):
         super().__init__(groupchat, **kwargs)
 
-    def run_chat(self, messages: List[Dict] = None, sender: Agent = None, config: GroupChat = None) -> str | Dict:
+    def run_chat(self, messages: List[Dict] = None, sender: Agent = None, config: GroupChat = None):
         return super().run_chat(messages, sender, config)
 
     def a_run_chat(self, messages: List[Dict] = None, sender: Agent = None, config: GroupChat = None):

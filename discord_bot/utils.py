@@ -1,3 +1,4 @@
+import os
 import logging
 import discord
 
@@ -9,7 +10,9 @@ INTENTS.members = True
 
 # Log to STDOUT and file
 def load_logger():
-    logging.basicConfig(filename='discord_bot.log', level=logging.DEBUG)
+    # find env for log level
+    log_level = os.getenv("LOG_LEVEL", "INFO")
+    logging.basicConfig(filename='discord_bot.log', level=log_level)
     logging.getLogger().addHandler(logging.StreamHandler())
 
 try:

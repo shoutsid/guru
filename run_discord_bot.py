@@ -4,7 +4,12 @@ TODO: Send back the audio to the channel along with the text, so that the user c
 TODO: Record stream to text stream, to a_initiate_chat stream, get response and stream text to voice, and then stream that to the voice channel.
 """
 
-from guru.weaviate.client import client
+from functools import wraps
+import inspect
+import threading
+import sys
+from guru.weaviate.client import client as weaviate_client
+from weaviate.schema import crud_schema
 import autogen
 from langchain.utilities.sql_database import SQLDatabase
 from datetime import datetime
@@ -360,7 +365,7 @@ def generate_user_agent(name, llm_config=None, code_execution=False):
                 "work_dir": "agent_workspace",
                 "use_docker": True,
             },
-            clear_history=True,
+            # clear_history=True,
         )
     else:
         agent = UserAgent(
@@ -557,4 +562,142 @@ async def test1(ctx):
                 await send_message_in_paragraphs(message, f"{reply['content']} Calling Function: {reply['function_call']}")
 
 
-DISCORD_BOT.run(BOT_TOKEN)
+def safe_serialize_arg(arg):
+    # Serialize various types of arguments
+    if isinstance(arg, (str, int, float, bool, type(None))):
+        return arg
+    elif isinstance(arg, (list, tuple, set, frozenset)):
+        return [safe_serialize_arg(item) for item in arg]
+    elif isinstance(arg, dict):
+        return {k: safe_serialize_arg(v) for k, v in arg.items()}
+    else:
+        # For complex types, return a string indicating the type instead of deep serialization
+        return f"<{type(arg).__name__}>"
+
+
+WEAVIATE_SCHEMA = weaviate_client.schema.get()
+
+
+def initialize_weaviate_client():
+    class_name = "FunctionCall"
+    has_class = False
+    for c in WEAVIATE_SCHEMA["classes"]:
+        if c["class"] == class_name:
+            has_class = True
+            break
+    if not has_class:
+        properties = [
+            {
+                "name": "name",
+                "dataType": ["string"],
+            },
+            {
+                "name": "filename",
+                "dataType": ["string"],
+            },
+            {
+                "name": "line_number",
+                "dataType": ["int"],
+            },
+            {
+                "name": "arguments",
+                "dataType": ["text"],
+            }
+        ]
+
+        class_schema = {
+            "class": class_name,
+            "properties": properties
+        }
+        weaviate_client.schema.create_class(class_schema)
+
+
+@DISCORD_BOT.event
+async def on_upload_to_weaviate(data):
+    try:
+        weaviate_client.data_object.create(
+            data_object=data,
+            class_name="FunctionCall"
+        )
+    except Exception as e:
+        print(f"An error occurred while uploading to Weaviate: {e}")
+        # Handle the exception as needed
+
+
+def prepare_data_for_weaviate(func_name, filename, line_no, serialized_args):
+    # Format the data as per the Weaviate schema
+    data = {
+        "name": func_name,
+        "filename": filename,
+        "line_number": line_no,
+        "arguments": str(serialized_args)  # Serializing arguments to string
+    }
+    return data
+
+
+def trace_calls(frame, event, arg):
+    if event != "call":
+        return
+    co = frame.f_code
+    func_name = co.co_name
+    filename = co.co_filename
+    line_no = frame.f_lineno
+    arg_info = inspect.getargvalues(frame)
+    arg_values = {key: frame.f_locals[key] for key in arg_info.args}
+    serialized_args = {k: safe_serialize_arg(v) for k, v in arg_values.items()}
+    # print(f"Trace: {func_name} in {filename}:{line_no} args={serialized_args}")
+    try:
+        # print("Attempting to upload to Weaviate...")
+        initialize_weaviate_client()
+        data = prepare_data_for_weaviate(
+            func_name, filename, line_no, serialized_args)
+        DISCORD_BOT.dispatch("upload_to_weaviate", data)
+    except Exception as e:
+        print(f"Error in Weaviate integration: {e}")
+
+
+def set_trace_for_all_threads():
+    threading.settrace(trace_calls)
+    sys.settrace(trace_calls)
+    for thread in threading.enumerate():
+        if thread is not threading.main_thread():
+            sys.settrace(trace_calls)
+
+
+def unset_trace_for_all_threads():
+    threading.settrace(None)
+    sys.settrace(None)
+
+
+def wrap_coroutine_function(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        result = await func(*args, **kwargs)
+        return result
+    return wrapper
+
+
+def trace_async_calls(loop):
+    orig_create_task = loop.create_task
+
+    @wraps(orig_create_task)
+    def create_task_wrapper(coro, **kwargs):
+        if asyncio.iscoroutine(coro) and hasattr(coro, 'cr_code') and 'autogen' in coro.cr_code.co_filename:
+            coro = wrap_coroutine_function(coro)
+        return orig_create_task(coro, **kwargs)
+
+    loop.create_task = create_task_wrapper
+
+
+def main():
+    # set_trace_for_all_threads()
+    # loop = asyncio.get_event_loop()
+    # trace_async_calls(loop)
+
+    DISCORD_BOT.run(BOT_TOKEN)
+
+    # unset_trace_for_all_threads()
+
+
+if __name__ == "__main__":
+    main()

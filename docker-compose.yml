@@ -4,6 +4,7 @@ services:
   db:
     container_name: db
     image: postgres
+    # Removed ports for external access
     volumes:
       - db:/var/lib/postgresql/data
     environment:
@@ -15,8 +16,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
-    ports:
-      - "5432:5432"
+    networks:
+      - internal_network
 
   weaviate:
     container_name: weaviate
@@ -28,31 +29,31 @@ services:
       - --scheme
       - http
     image: semitechnologies/weaviate:1.22.4
-    ports:
-      - 8080:8080
-      - 50051:50051
+    # Removed ports for external access
     volumes:
       - weaviate_data:/var/lib/weaviate
     restart: on-failure:0
     env_file:
       - .env.weaviate
+    networks:
+      - internal_network
 
   zookeeper:
     image: wurstmeister/zookeeper
     container_name: zookeeper
-    ports:
-      - "2181:2181"
+    # Removed ports for external access
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 2181 || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 20
+    networks:
+      - internal_network
 
   kafka:
     image: wurstmeister/kafka
     container_name: kafka
-    ports:
-      - "9092:9092"
+    # Removed ports for external access
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -62,35 +63,17 @@ services:
       timeout: 10s
       retries: 20
     environment:
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"  # Enable automatic topic creation
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_ADVERTISED_HOST_NAME: kafka
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_PORT: 9092
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     links:
       - zookeeper:zookeeper
+    networks:
+      - internal_network
 
-  # # Client for the Guru API
-  # python_guru_kafka_consumer:
-  #   build:
-  #     context: .
-  #     dockerfile: ./Dockerfile
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #     kafka:
-  #       condition: service_healthy
-  #     zookeeper:
-  #       condition: service_healthy
-  #     guru_api:
-  #       condition: service_healthy
-  #   links:
-  #     - guru_api:guru_api
-  #   env_file:
-  #     - .env.discord_bot
-  #   command: python3 ./guru/api/kafka/consumer.py
-
-  # Client for the Guru API
   discord_bot:
     build:
       context: .
@@ -111,9 +94,9 @@ services:
     env_file:
       - .env.discord_bot
     command: python3 run_discord_bot.py
+    networks:
+      - internal_network
 
-  # This runs as it's in Production. Modify with caution.
-  # primary api backend
   guru_api:
     container_name: guru_api
     build:
@@ -127,8 +110,7 @@ services:
       - .env
     volumes:
       - guru_api_storage:/rails/storage/
-    ports:
-      - 3000:3000
+    # Removed ports for external access
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/up"]
       interval: 10s
@@ -147,6 +129,8 @@ services:
     links:
       - db:db
       - weaviate:weaviate
+    networks:
+      - internal_network
 
   karafka:
     container_name: karafka
@@ -174,6 +158,8 @@ services:
     links:
       - db:db
       - weaviate:weaviate
+    networks:
+      - internal_network
 
   karafka_web:
     container_name: karafka_web
@@ -203,8 +189,14 @@ services:
       - db:db
     ports:
       - 9292:9292
+    networks:
+      - internal_network
 
 volumes:
   guru_api_storage:
   weaviate_data:
   db:
+
+networks:
+  internal_network:
+    driver: bridge

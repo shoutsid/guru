@@ -21,3 +21,15 @@ local_cache/
 */data/
 */photos/
 */fiqa/
+
+cat.jpg
+eiffel-tower-day.jpg
+eiffel-tower-night.jpg
+emnlp2016-2018.json
+fiqa.zip
+simplewiki-2020-11-01-nq-distilbert-base-v1.pt
+simplewiki-2020-11-01.jsonl.gz
+two_dogs_in_snow.jpg
+unsplash-25k-photos-embeddings.pkl
+unsplash-25k-photos.zip
+.vscode/launch.json
