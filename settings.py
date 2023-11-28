@@ -11,6 +11,7 @@ OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 GPT3_5_TURBO_1106 = "gpt-3.5-turbo-1106"
 GPT4 = "gpt-4-1106-preview"
 VICUNA_7B_V1_5 = "vicuna-7b-v1.5"
+MISTRAL = "OpenHermes-2.5-Mistral-7B"
 
 if "GPT4" in os.environ:
     CONFIG_LIST = [
@@ -22,10 +23,17 @@ if "GPT4" in os.environ:
 elif "LOCAL" in os.environ:
     CONFIG_LIST = [
         {
-            "model": GPT3_5_TURBO_1106,
+            "model": MISTRAL,
+            "base_url": "http://localhost:8000/v1",
             "api_key": "None",
-            "api_base": "http://localhost:8000/v1",
-            "api_type": "open_ai",
+        }
+    ]
+elif "HUGGINGFACE" in os.environ:
+    CONFIG_LIST = [
+        {
+            "model": "teknium/OpenHermes-2.5-Mistral-7B",
+            "base_url": "https://v1tkumrhi125vaeb.eu-west-1.aws.endpoints.huggingface.cloud",
+            "api_key": OPENAI_API_KEY,
         }
     ]
 else:
