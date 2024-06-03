@@ -45,7 +45,7 @@ py-cord[voice]==2.4.1
 pydub==0.25.1
 arxiv==2.0.0
 pysqlite3-binary
-fastapi==0.104.1
+fastapi==0.109.1
 uvicorn==0.24.0
 sqlmodel==0.0.11
 elevenlabs
