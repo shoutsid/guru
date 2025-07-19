@@ -24,13 +24,13 @@ tiktoken
 librosa
 pyaudio
 
-pyautogen @git+https://github.com/microsoft/autogen@main#egg=pyautogen
+ag2 @git+https://github.com/microsoft/autogen@main#egg=ag2
 openai~=1.2
 
 # You would normally install this, but this will bring
 # over torch and other dependencies that we don't want
 # Instead we are managing the requirements ourselves.
-# pyautogen[retrievechat]==0.1.13
+# ag2[retrievechat]==0.1.13
 # tiktoken
 # sentence_transformers - BAD introduces torch
 # pypdf
